@@ -46,7 +46,6 @@ Delivery covered API authentication, user-scoped session ownership, admin user m
 
 - [ ] Enforce session ownership on message and part routes so isolation holds end-to-end
 - [ ] Preserve per-user token and usage statistics while tightening service boundaries
-- [ ] Prevent deleted or invalid user identities from exposing `/user/:id/usage` stats
 - [ ] Remove user registration responsibility from this project and document the new boundary clearly
 - [ ] Add missing phase `*-VALIDATION.md` artifacts for archived milestone evidence
 
@@ -114,7 +113,7 @@ Current product boundary for `v1.1`:
 
 - Close the message and part ownership gap so session isolation is complete end-to-end
 - Keep per-user token and usage accounting intact while boundaries shift around registration ownership
-- Tighten deleted-user handling on usage endpoints
+- Make the project boundary explicit so registration stays outside this service
 - Restore missing validation artifacts and improve milestone evidence completeness
 - Build on the shipped isolation baseline without reopening `v1.0` scope
 
