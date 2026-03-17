@@ -1,83 +1,37 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: multi-user-isolation
-current_phase: 4
-current_plan: milestone complete
-status: milestone_complete
+milestone: v1.1
+milestone_name: isolation-boundary-tightening
+current_phase: 0
+current_plan: requirements definition
+status: defining_requirements
 last_updated: "2026-03-18T00:00:00.000Z"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 17
-  completed_plans: 17
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: OpenCode Multi-User Isolation
 
 **Last Updated:** 2026-03-18  
-**Current Phase:** 4
-**Current Plan:** milestone complete
+**Current Phase:** 0
+**Current Plan:** requirements definition
 
 ## Project Reference
 
 **Core Value:** Each user's sessions, messages, and agent interactions are completely isolated from other users — no data leakage, no shared state.
 
-**Current Focus:** `v1.0` archived; define the next milestone
+**Current Focus:** `v1.1` is being defined around isolation boundary tightening
 
 ## Current Position
 
-**Phase:** 4 - Resource Protection  
-**Plan:** Milestone complete  
-**Status:** Awaiting next milestone planning
-**Progress:** [██████████] 100%
-
-## Performance Metrics
-
-**Phases:**
-
-- Completed: 4
-- In Progress: 0
-- Remaining: 0
-
-**Plans:**
-
-- Completed: 17
-- In Progress: 0
-- Remaining: 0
-
-**Requirements:**
-
-- Completed: 27/27 checked, 22/27 fully satisfied in milestone audit
-- Coverage: 100%
-
-**Milestone Delivery:**
-
-- Git range: `afb96e4f9` -> `8a192022f`
-- Timeline: 2026-03-17 -> 2026-03-18
-- Change volume: 69 files changed, +9670 / -20
-
-**Execution History:**
-
-| Phase        | Plan | Duration (min) | Tasks    | Files |
-| ------------ | ---- | -------------- | -------- | ----- |
-| 02           | 01   | 14             | 3        | 2     |
-| 02           | 02   | 5              | 3        | 1     |
-| Phase 02 P03 | 7    | 2 tasks        | 1 files  |
-| Phase 02 P04 | 7    | 2 tasks        | 3 files  |
-| Phase 02 P05 | 3    | 1 tasks        | 1 files  |
-| Phase 03 P01 | 8    | 3 tasks        | 2 files  |
-| Phase 03 P02 | 5    | 2 tasks        | 2 files  |
-| Phase 03 P03 | 2    | 2 tasks        | 2 files  |
-| Phase 03 P04 | 2    | 2 tasks        | 2 files  |
-| Phase 03 P05 | 3    | 3 tasks        | 2 files  |
-| Phase 04 P01 | 3    | 1 tasks        | 1 files  |
-| Phase 04 P02 | 2    | 1 tasks        | 1 files  |
-| Phase 04 P03 | 4    | 2 tasks        | 2 files  |
-| Phase 04 P04 | 3    | 1 tasks        | 1 files  |
-| Phase 04 P05 | 3    | 1 tasks        | 1 files  |
-| Phase 01 P02 | 10   | 4 tasks        | 10 files |
+**Phase:** Not started (defining requirements)  
+**Plan:** -  
+**Status:** Defining requirements
+**Last activity:** 2026-03-18 - Milestone `v1.1` started
 
 ## Accumulated Context
 

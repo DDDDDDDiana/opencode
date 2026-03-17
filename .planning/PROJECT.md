@@ -14,6 +14,17 @@ Each user's sessions, messages, and agent interactions are completely isolated f
 
 Delivery covered API authentication, user-scoped session ownership, admin user management, usage tracking and quotas, model allowlist enforcement, and follow-up testing and typecheck cleanup. A milestone audit was reviewed before release, and the remaining gaps were accepted as tech debt.
 
+## Current Milestone: v1.1 Isolation Boundary Tightening
+
+**Goal:** Narrow this service to multi-user isolation and related backend safeguards while moving registration responsibilities out to the frontend and a separate service.
+
+**Target features:**
+
+- Complete end-to-end ownership enforcement for session-derived resources
+- Preserve per-user token and usage accounting as a first-class service capability
+- Clarify and enforce service boundaries around user registration and lifecycle ownership
+- Close archived validation and evidence gaps from `v1.0`
+
 ## Requirements
 
 ### Validated
@@ -33,10 +44,11 @@ Delivery covered API authentication, user-scoped session ownership, admin user m
 
 ### Active
 
-- [ ] Enforce session ownership on message and part routes (`SESS-03`)
-- [ ] Prevent deleted user ids from exposing `/user/:id/usage` stats (`USER-05`, `USER-06`, `USAGE-04`)
+- [ ] Enforce session ownership on message and part routes so isolation holds end-to-end
+- [ ] Preserve per-user token and usage statistics while tightening service boundaries
+- [ ] Prevent deleted or invalid user identities from exposing `/user/:id/usage` stats
+- [ ] Remove user registration responsibility from this project and document the new boundary clearly
 - [ ] Add missing phase `*-VALIDATION.md` artifacts for archived milestone evidence
-- [ ] Regenerate and expose the JS SDK surface for the shipped `/user` API if it remains missing
 
 ### Out of Scope
 
@@ -44,6 +56,7 @@ Delivery covered API authentication, user-scoped session ownership, admin user m
 - Soft quota limits (model downgrade) — hard reject on limit exceeded; simpler and more predictable
 - External quota systems — SQLite persistence is sufficient; no external billing/metering integration
 - UI for user management — API only; admin tooling is out of scope for v1
+- User registration, signup UX, and onboarding flows — owned by the frontend and another service in `v1.1`
 - Per-user file system isolation — users share the same directory context; isolation is at session/data layer only
 - Holding `v1.0` for the accepted audit gaps — follow-up work moves to the next milestone
 
@@ -72,6 +85,12 @@ Current codebase snapshot:
 - Change volume: 69 files changed, +9670 / -20
 - `packages/opencode/src` currently contains 51,565 lines of TypeScript
 
+Current product boundary for `v1.1`:
+
+- Frontend plus another service own user registration and onboarding flows
+- This project remains responsible for authenticated multi-user isolation, ownership checks, and usage/token accounting
+- Any user-facing identity lifecycle handled here must support isolation needs, not become a second registration system
+
 ## Constraints
 
 - **Compatibility**: No breaking changes to existing single-user / no-auth usage — `user_id` nullable, anonymous requests still work
@@ -89,14 +108,16 @@ Current codebase snapshot:
 | Parallel UserContext ALS (not extending Instance) | Keeps Instance clean, follows WorkspaceContext pattern | ✓ Good     |
 | `user_id` nullable on SessionTable                | Backward compatible with existing deployments          | ✓ Good     |
 | Ship `v1.0` with documented audit gaps            | Preserve release momentum and track gaps explicitly    | ⚠ Revisit |
+| Registration flows live outside this service      | Keep this project focused on isolation and usage       | — Pending  |
 
 ## Next Milestone Goals
 
 - Close the message and part ownership gap so session isolation is complete end-to-end
+- Keep per-user token and usage accounting intact while boundaries shift around registration ownership
 - Tighten deleted-user handling on usage endpoints
 - Restore missing validation artifacts and improve milestone evidence completeness
 - Build on the shipped isolation baseline without reopening `v1.0` scope
 
 ---
 
-_Last updated: 2026-03-18 after `v1.0` milestone completion_
+_Last updated: 2026-03-18 after starting `v1.1` milestone_
