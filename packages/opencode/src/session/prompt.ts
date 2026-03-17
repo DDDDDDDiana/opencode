@@ -48,6 +48,9 @@ import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
 import { decodeDataUrl } from "@/util/data-url"
+import { QuotaError } from "@/user/errors"
+import { User } from "@/user"
+import { UserContext } from "@/user/user-context"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -328,6 +331,12 @@ export namespace SessionPrompt {
       }
 
       step++
+      const uid = UserContext.userID
+      if (uid) {
+        const user = await User.get(uid)
+        if (user.quotaAgentCalls !== null && step > user.quotaAgentCalls)
+          throw new QuotaError({ kind: "agent_calls", limit: user.quotaAgentCalls, current: step })
+      }
       if (step === 1)
         ensureTitle({
           session,
