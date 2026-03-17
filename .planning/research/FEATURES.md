@@ -1,146 +1,184 @@
-# Feature Landscape: Multi-User Isolation
+# Feature Research
 
-**Domain:** Multi-user isolation for self-hosted AI coding assistant
-**Researched:** 2026-03-17
-**Confidence:** HIGH (based on project requirements and standard multi-tenant patterns)
+**Domain:** Multi-user isolation and usage accountability service (post-v1.0 boundary tightening)
+**Researched:** 2026-03-18
+**Confidence:** HIGH
 
-## Table Stakes
+## Feature Landscape
 
-Features users expect. Missing = isolation is incomplete or unusable.
+### Scope framing for this milestone
 
-| Feature                             | Why Expected                                                  | Complexity | Notes                                                                  |
-| ----------------------------------- | ------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
-| **Per-user API key authentication** | Core identity mechanism; without it, no user isolation exists | Low        | Bearer token in `Authorization` header; hash stored in DB              |
-| **Session ownership**               | Sessions must belong to users; shared sessions = data leakage | Low        | Add `user_id` to SessionTable, filter all queries                      |
-| **User CRUD API**                   | Admins need to create/delete users and issue API keys         | Low        | REST endpoints: POST/GET/DELETE `/users`, generate keys on create      |
-| **Hard quota enforcement**          | Prevent runaway usage; protect shared resources               | Medium     | Check limits before agent loop starts; reject if exceeded              |
-| **Token usage tracking**            | Quotas meaningless without metering actual consumption        | Medium     | Record tokens per session/message; aggregate per user                  |
-| **Concurrent session limits**       | Prevent single user monopolizing server resources             | Low        | Count active sessions per user; reject new if at limit                 |
-| **Anonymous fallback**              | Backward compatibility with existing no-auth deployments      | Low        | Nullable `user_id`; unauthenticated requests see only unowned sessions |
-| **API key lifecycle**               | Keys must be revocable without deleting user                  | Low        | `revoked_at` timestamp on key table; check on auth                     |
+For services like this, the normal split is:
 
-## Differentiators
+- **Keep in the isolation service:** anything required to prove requester identity inside this service, bind requests to a user, enforce ownership on every resource hop, meter usage, enforce quotas, and safely disable deleted users.
+- **Make optional/admin-facing:** operational visibility and admin ergonomics that help manage isolation or spending, but are not required for correctness.
+- **Move out:** registration, signup, onboarding, password/email flows, and end-user lifecycle UX. Those belong to the frontend or an upstream identity/provisioning system.
 
-Features that set product apart. Not expected, but valued.
+That means `v1.1` should behave more like a **policy enforcement and accounting service** than a full user-management product.
 
-| Feature                          | Value Proposition                                             | Complexity | Notes                                                           |
-| -------------------------------- | ------------------------------------------------------------- | ---------- | --------------------------------------------------------------- |
-| **Per-user model allowlist**     | Fine-grained cost control; restrict expensive models per user | Low        | JSON array on user table; validate model before LLM call        |
-| **Daily/monthly token caps**     | Predictable cost management; reset quotas on schedule         | Medium     | Store period start timestamp; reset counter when period expires |
-| **Usage analytics API**          | Visibility into consumption patterns; helps admins optimize   | Medium     | Aggregate queries on usage table; group by user/model/time      |
-| **Quota warning events**         | Proactive notification before hard limit hit                  | Low        | Emit event at 80%/90% thresholds; client can display warning    |
-| **Multiple API keys per user**   | Key rotation without downtime; separate keys per client       | Low        | One-to-many user→keys; authenticate against any active key      |
-| **Rate limiting (requests/min)** | Protect against abuse; complement quota system                | Medium     | In-memory sliding window per user; reject if rate exceeded      |
-| **Audit log**                    | Security compliance; track who did what when                  | Medium     | Log all authenticated actions with user_id/timestamp/action     |
-| **User groups/roles**            | Simplify quota management for teams; assign quotas to groups  | High       | Group table, user_group junction, inherit quotas from group     |
+### Table Stakes (Users Expect These)
 
-## Anti-Features
+Features users assume exist. Missing these = the isolation boundary is not credible.
 
-Features to explicitly NOT build in v1.
+| Feature                                                       | Why Expected                                                                                                     | Complexity | Notes                                                                                                                       |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------- |
+| End-to-end ownership enforcement on session-derived resources | Multi-user systems are expected to prevent horizontal access across messages, parts, forks, deletes, and lookups | MEDIUM     | Must stay. This is the core hardening item for `v1.1`; all derived-resource routes need deny-by-default ownership checks    |
+| Authenticated user context bound early in request handling    | Isolation depends on a validated user context, not route-by-route ad hoc parsing                                 | LOW        | Must stay. Existing API key auth + `UserContext` ALS already fits this boundary                                             |
+| Active/deleted/suspended user gating                          | Deleted or invalid identities must not keep reading usage or touching resources                                  | LOW        | Must stay. Minimal lifecycle state is acceptable because it protects isolation; this is not the same as owning registration |
+| Per-user usage/token ledger                                   | Quotas and accountability are meaningless without durable usage attribution                                      | MEDIUM     | Must stay. Keep recording usage by user and exposing scoped usage stats                                                     |
+| Hard quota enforcement                                        | Shared services are expected to stop runaway spend or abuse deterministically                                    | MEDIUM     | Must stay. Current project decision to hard-reject is the right table-stakes behavior                                       |
+| Ownership-safe anonymous compatibility                        | Existing single-user/no-auth installs should not break while multi-user paths stay isolated                      | MEDIUM     | Must stay for brownfield compatibility. Requires careful nullable `user_id` handling without creating bypasses              |
+| Audit-quality authorization/validation evidence               | Isolation services are expected to prove checks exist, not just claim they do                                    | MEDIUM     | Must stay for this milestone because `v1.0` shipped with accepted evidence gaps                                             |
 
-| Anti-Feature                            | Why Avoid                                                                        | What to Do Instead                                                      |
-| --------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **Soft quota limits (model downgrade)** | Complex fallback logic; unpredictable behavior; user confusion                   | Hard reject with clear error message; user knows exactly when limit hit |
-| **JWT authentication**                  | Adds complexity (signing, expiry, refresh); API keys sufficient for service mode | API key authentication; simpler, stateless, revocable                   |
-| **External billing integration**        | Scope creep; SQLite tracking sufficient for self-hosted                          | Expose usage data via API; let admins integrate externally if needed    |
-| **UI for user management**              | Frontend work outside core isolation; admins comfortable with APIs/CLI           | REST API only; admins use curl/Postman or build own tooling             |
-| **Per-user file system isolation**      | Massive architectural change; OpenCode designed for shared workspace             | Session/data isolation only; users share directory context              |
-| **OAuth/SSO integration**               | Enterprise feature; overkill for self-hosted; adds dependencies                  | API key auth; simple, self-contained, no external dependencies          |
-| **Granular permission system**          | Over-engineering; all users have same tool access in v1                          | Binary: authenticated or not; per-user permissions deferred to v2       |
-| **Quota marketplace/credits**           | Monetization feature; irrelevant for self-hosted                                 | Fixed quotas set by admin; no virtual currency or purchasing            |
+### Differentiators (Competitive Advantage)
+
+Valuable features that improve operator trust or admin ergonomics, but are not the first thing to build.
+
+| Feature                                            | Value Proposition                                                                           | Complexity | Notes                                                                                         |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------- |
+| Cross-route isolation violation telemetry          | Makes boundary regressions visible quickly instead of discovering them after an incident    | MEDIUM     | Optional hardening differentiator. Log denied cross-user access attempts and surface patterns |
+| Usage breakdowns by model/session/time window      | Helps admins explain cost, tune quotas, and spot abuse without external billing tools       | MEDIUM     | Keep if lightweight. Strong fit because usage accountability remains in scope                 |
+| Admin-safe disable/revoke flows                    | Lets operators immediately freeze a compromised user without deleting historical accounting | LOW        | Good ergonomics. Separate `disabled` from `deleted` so audit and usage records remain intact  |
+| Scoped API key rotation and multiple keys per user | Improves operational safety for integrations without weakening isolation                    | LOW        | Useful if this service continues to authenticate via API keys                                 |
+| Quota threshold warnings for admins                | Gives operators time to intervene before hard failures                                      | LOW        | Nice-to-have. Keep as admin ergonomics, not end-user onboarding UX                            |
+| Usage export/report endpoints                      | Simplifies downstream finance or compliance workflows without integrating external billing  | MEDIUM     | Good differentiator if export remains strictly scoped and read-only                           |
+
+### Anti-Features (Commonly Requested, Often Problematic)
+
+Features that sound reasonable but violate the new service boundary or create brownfield churn.
+
+| Feature                                                          | Why Requested                                                    | Why Problematic                                                                                                              | Alternative                                                                                                              |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Self-service signup/registration                                 | Teams want one service to “just create users too”                | Recreates the boundary this milestone is explicitly trying to remove; drags in verification, abuse controls, and identity UX | Accept provisioned users from the frontend/upstream service; keep only minimal local identity state needed for isolation |
+| Invite flows, password reset, email verification, MFA UX         | Feels like part of “user management”                             | These are identity/onboarding concerns, not isolation/accounting concerns; they expand the attack surface                    | Delegate to upstream identity provider or frontend-owned auth service                                                    |
+| Rich profile management                                          | Seems harmless once users exist                                  | Adds CRUD surface with little isolation value and becomes a shadow account system                                            | Store only fields required for ownership, status, and admin diagnostics                                                  |
+| Full lifecycle onboarding workflows                              | Product teams often want setup steps near the backend APIs       | Mixes education/activation UX with enforcement logic and muddies responsibilities                                            | Publish clear API contracts/errors so the frontend can own onboarding                                                    |
+| External billing, invoicing, or credit wallets                   | Usage accounting can tempt teams into building monetization here | Large scope jump; out of line with project constraints and not required for quota enforcement                                | Keep internal usage ledger + export endpoints only                                                                       |
+| Fine-grained org/role builder for arbitrary business permissions | Teams often ask for “permissions while we’re here”               | High-complexity policy system that distracts from the concrete ownership gap in session-derived resources                    | Keep simple ownership + admin override rules; revisit only if actual multi-org policy needs appear                       |
+| SCIM/enterprise provisioning inside this service                 | Sounds aligned because it touches user lifecycle                 | Provisioning belongs to the upstream identity/user service unless enterprise sync itself becomes a product goal              | Consume upstream user state changes or mirrored records instead of owning provisioning workflows                         |
+
+## Capability Boundary: Keep vs Move Out
+
+### Must stay in this service
+
+| Capability                                                 | Why it stays                                                     | Category                  |
+| ---------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------- |
+| Request authentication for this service                    | Needed to know who is making the call before enforcing ownership | Required hardening        |
+| Local user/status record (`active`, `disabled`, `deleted`) | Needed to gate access and protect usage/accounting endpoints     | Required hardening        |
+| Resource ownership checks                                  | The main reason this service exists                              | Required hardening        |
+| Usage recording and per-user totals                        | Required for accountability and quota enforcement                | Required hardening        |
+| Quota checks and limit rejection                           | Prevents abusive or accidental resource exhaustion               | Required hardening        |
+| Admin revoke/disable controls                              | Needed to contain incidents without relying on registration UX   | Optional admin ergonomics |
+| Scoped usage reporting/export                              | Directly tied to accountability                                  | Optional admin ergonomics |
+
+### Should move out of this service
+
+| Capability                                                   | Why it moves out                                          | Category           |
+| ------------------------------------------------------------ | --------------------------------------------------------- | ------------------ |
+| Signup and user creation UX                                  | Registration is no longer this service’s job              | Boundary violation |
+| Invite acceptance and welcome flows                          | Onboarding UX belongs in frontend/upstream identity       | Boundary violation |
+| Password/email/MFA recovery flows                            | Identity assurance is separate from isolation enforcement | Boundary violation |
+| Profile editing/preferences unrelated to quotas or ownership | Not needed to enforce isolation                           | Boundary violation |
+| Marketing-style onboarding/checklists                        | No backend isolation value                                | Boundary violation |
 
 ## Feature Dependencies
 
+```text
+Authenticated user context
+    └──requires──> active/deleted/suspended user gating
+                           └──requires──> ownership-safe anonymous compatibility
+
+Authenticated user context
+    └──requires──> end-to-end ownership enforcement
+                           └──requires──> audit-quality authorization tests/evidence
+
+Authenticated user context
+    └──requires──> per-user usage/token ledger
+                           └──requires──> hard quota enforcement
+                                            └──enhances──> quota threshold warnings
+
+Per-user usage/token ledger
+    └──enhances──> usage breakdowns / exports
+
+Self-service signup / onboarding UX ──conflicts──> boundary-tight isolation service scope
+Rich profile management ──conflicts──> minimal local identity state
+External billing platform work ──conflicts──> milestone focus on accounting, not monetization
 ```
-User CRUD API → API key authentication (must create users before issuing keys)
-API key authentication → Session ownership (must identify user before assigning sessions)
-Session ownership → Token usage tracking (must know which user to charge)
-Token usage tracking → Hard quota enforcement (must track usage before enforcing limits)
-Per-user model allowlist → API key authentication (must identify user before checking allowlist)
-Multiple API keys per user → API key lifecycle (revocation must work per-key, not per-user)
-User groups/roles → User CRUD API (groups are collections of users)
-Audit log → API key authentication (must identify user to log actions)
-```
 
-## MVP Recommendation
+### Dependency Notes
 
-**Phase 1: Core Isolation (table stakes)**
+- **Ownership enforcement requires authenticated user context:** every message/part/session-derived lookup must know the caller before it can deny by default.
+- **Usage ledger requires authenticated user context:** usage without durable attribution cannot support quotas or accountability.
+- **Hard quota enforcement requires the usage ledger:** limits must be based on persisted, user-scoped consumption, not ephemeral counters.
+- **Deleted-user gating requires local user status:** the service needs enough identity state to reject stale/deleted users even if registration lives elsewhere.
+- **Authorization evidence requires ownership enforcement:** the missing `*-VALIDATION.md` and route coverage should be treated as proof that hardening is complete.
+- **Signup/onboarding features conflict with milestone scope:** they convert the service back into a second registration system and should stay out.
 
-1. User CRUD API (create users, issue keys)
-2. API key authentication (identify user per request)
-3. Session ownership (user_id on sessions, filtered queries)
-4. Anonymous fallback (nullable user_id, backward compatible)
+## MVP Definition
 
-**Phase 2: Resource Protection (table stakes)** 5. Token usage tracking (record consumption per user) 6. Hard quota enforcement (agent call limit, token cap) 7. Concurrent session limits (prevent monopolization) 8. API key lifecycle (revocation without user deletion)
+### Launch With (v1.1 milestone)
 
-**Phase 3: Fine-Grained Control (differentiators)** 9. Per-user model allowlist (cost control) 10. Daily/monthly token caps (predictable budgets) 11. Multiple API keys per user (key rotation)
+- [x] End-to-end ownership enforcement for session-derived resources — closes the main isolation gap left after `v1.0`
+- [x] Authenticated user context + user status gating — needed to reject deleted/invalid identities safely
+- [x] Per-user usage/token ledger preservation — keeps accountability intact while boundaries move
+- [x] Hard quota enforcement — still the simplest reliable spend-control behavior
+- [x] Validation and audit evidence restoration — needed to trust the hardening work in a brownfield codebase
 
-**Defer to v2:**
+### Add After Validation (v1.1.x)
 
-- Usage analytics API (nice to have, not blocking)
-- Quota warning events (UX enhancement, not core isolation)
-- Rate limiting (abuse protection, can add later)
-- Audit log (compliance feature, not isolation requirement)
-- User groups/roles (complexity, defer until multi-team demand)
+- [ ] Cross-route isolation violation telemetry — add once core checks are complete and stable
+- [ ] Usage breakdowns / exports — add when admins need deeper accountability than raw totals
+- [ ] Scoped API key rotation improvements — add when operational pain appears in real deployments
+- [ ] Quota threshold warnings for admins — add when operators need proactive intervention tools
 
-**Rationale:**
+### Future Consideration (v2+)
 
-- Phase 1 establishes identity and ownership (isolation foundation)
-- Phase 2 prevents resource exhaustion (makes isolation production-ready)
-- Phase 3 adds cost control (competitive advantage for self-hosted teams)
-- Deferred features are enhancements, not blockers for functional multi-user isolation
+- [ ] Rich admin policy layers beyond ownership/admin override — defer until concrete authorization complexity appears
+- [ ] Enterprise provisioning integrations directly in this service — only revisit if product boundary changes again
+- [ ] External billing integrations — only if the product becomes a monetization platform, not just an isolation service
 
-## Complexity Assessment
+## Feature Prioritization Matrix
 
-| Feature                    | Complexity | Reason                                                      |
-| -------------------------- | ---------- | ----------------------------------------------------------- |
-| API key authentication     | Low        | Standard Bearer token pattern; hash comparison              |
-| Session ownership          | Low        | Add column, filter queries; straightforward DB change       |
-| User CRUD API              | Low        | Basic REST endpoints; minimal business logic                |
-| Anonymous fallback         | Low        | Nullable column + conditional logic; already planned        |
-| API key lifecycle          | Low        | Timestamp-based revocation; simple check on auth            |
-| Token usage tracking       | Medium     | Requires hooking LLM response metadata; aggregation queries |
-| Hard quota enforcement     | Medium     | Multiple limit types; check before loop; error handling     |
-| Concurrent session limits  | Low        | Count query + comparison; reject if exceeded                |
-| Per-user model allowlist   | Low        | JSON array validation; single check before LLM call         |
-| Daily/monthly token caps   | Medium     | Period tracking; reset logic; timezone considerations       |
-| Multiple API keys per user | Low        | One-to-many relation; authenticate against any active key   |
-| Usage analytics API        | Medium     | Aggregation queries; time-series grouping; API design       |
-| Quota warning events       | Low        | Threshold checks; event emission; client integration        |
-| Rate limiting              | Medium     | In-memory state; sliding window algorithm; cleanup          |
-| Audit log                  | Medium     | Middleware integration; log storage; query API              |
-| User groups/roles          | High       | New tables; inheritance logic; migration complexity         |
+| Feature                                    | User Value | Implementation Cost | Priority          |
+| ------------------------------------------ | ---------- | ------------------- | ----------------- |
+| End-to-end ownership enforcement           | HIGH       | MEDIUM              | P1                |
+| Authenticated user context + status gating | HIGH       | LOW                 | P1                |
+| Per-user usage/token ledger                | HIGH       | MEDIUM              | P1                |
+| Hard quota enforcement                     | HIGH       | MEDIUM              | P1                |
+| Validation/audit evidence restoration      | HIGH       | MEDIUM              | P1                |
+| Cross-route isolation telemetry            | MEDIUM     | MEDIUM              | P2                |
+| Usage breakdowns / exports                 | MEDIUM     | MEDIUM              | P2                |
+| Scoped API key rotation ergonomics         | MEDIUM     | LOW                 | P2                |
+| Quota threshold warnings                   | MEDIUM     | LOW                 | P3                |
+| Rich role/policy builder                   | LOW        | HIGH                | P3                |
+| Self-service signup / onboarding           | LOW        | HIGH                | P3 (do not build) |
 
-## Integration Points
+**Priority key:**
 
-**Server Layer:**
+- P1: Must have for this milestone
+- P2: Should have if milestone scope permits
+- P3: Defer or explicitly avoid
 
-- Middleware: API key authentication before route handlers
-- Routes: User management endpoints (`/users`, `/users/:id`, `/users/:id/keys`)
-- Context: UserContext ALS propagation (parallel to Instance)
+## Competitor / Ecosystem Pattern Analysis
 
-**Session Layer:**
-
-- Schema: Add `user_id` to SessionTable (nullable, indexed)
-- Queries: Filter by `user_id` in all session lookups
-- Prompt loop: Check quotas before starting agent execution
-
-**Storage Layer:**
-
-- Tables: `user`, `api_key`, `usage_record`
-- Migrations: Add `user_id` to existing tables (nullable for backward compat)
-- Indexes: `user_id` on sessions, `user_id + created_at` on usage
-
-**Provider Layer:**
-
-- Hook: Capture token counts from LLM responses
-- Validation: Check model allowlist before provider call
+| Feature Area                       | Common ecosystem split                                                          | Our Approach                                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Authentication / registration      | Often delegated to identity products such as AuthKit/User Management platforms  | Keep only request auth needed by this service; move signup/onboarding UX out    |
+| Provisioning / deprovisioning      | Often handled by upstream directory or lifecycle tooling                        | Consume user state changes; keep local status only for isolation and accounting |
+| Authorization / resource isolation | Kept inside the product service because it knows the resource graph             | Keep ownership enforcement here; do not outsource resource semantics            |
+| Usage accounting / quotas          | Usually product-local because only the product can meter meaningful consumption | Keep the token/usage ledger and quota checks here                               |
+| Admin visibility                   | Added as light operational tooling, not full account-management UX              | Prefer minimal admin APIs and exports over broad user-management features       |
 
 ## Sources
 
-- OpenCode PROJECT.md (project requirements and constraints)
-- OpenCode ARCHITECTURE.md (existing patterns: Instance, WorkspaceContext, SessionTable)
-- Standard multi-tenant SaaS patterns (API key auth, quota enforcement, usage tracking)
-- Self-hosted service requirements (backward compatibility, admin APIs, resource protection)
+- Project context: `D:\python_projects\opencode\.planning\PROJECT.md` — explicit `v1.1` scope, active requirements, and out-of-scope items. **Confidence: HIGH**
+- OWASP Authorization Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html — validates deny-by-default, per-request checks, object-level authorization, and logging/testing expectations. **Confidence: HIGH**
+- OWASP Multi-Tenant Security Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Multi_Tenant_Security_Cheat_Sheet.html — validates tenant context propagation, composite ownership checks, per-tenant quotas, and audit requirements. **Confidence: HIGH**
+- AWS SaaS Lens, Tenant Isolation: https://docs.aws.amazon.com/wellarchitected/latest/saas-lens/tenant-isolation.html — supports treating isolation as foundational and business-critical in shared infrastructure. **Confidence: HIGH**
+- WorkOS AuthKit overview: https://workos.com/docs/user-management/overview — shows registration/authentication/email verification/MFA commonly live in a dedicated identity layer. **Confidence: MEDIUM**
+- WorkOS Directory Sync overview: https://workos.com/docs/directory-sync/overview — shows provisioning/deprovisioning is often an upstream lifecycle-management concern rather than a product-service concern. **Confidence: MEDIUM**
 
-**Confidence:** HIGH — features derived from explicit project requirements and well-established multi-tenant patterns. No external research needed; domain is standard.
+---
+
+_Feature research for: OpenCode Multi-User Isolation `v1.1` boundary tightening_
+_Researched: 2026-03-18_

@@ -1,284 +1,196 @@
-# Technology Stack: Multi-User Isolation
+# Stack Research
 
-**Project:** OpenCode Multi-User Isolation
-**Researched:** 2026-03-17
-**Dimension:** API key auth, per-user isolation, quotas — Hono/Bun/SQLite service
-
----
+**Domain:** Isolation boundary tightening for an existing multi-user OpenCode service
+**Researched:** 2026-03-18
+**Confidence:** HIGH
 
 ## Recommended Stack
 
-### API Key Authentication
+### Core Technologies
 
-| Technology                        | Version           | Purpose                                          | Why                                                                                               |
-| --------------------------------- | ----------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `hono/bearer-auth`                | 4.10.7 (built-in) | Extract + validate `Authorization: Bearer <key>` | Already in the dep tree; `verifyToken` callback does async DB lookup; no new package needed       |
-| `hono/factory` `createMiddleware` | 4.10.7 (built-in) | Type-safe middleware that sets `c.var.user`      | Gives typed `Variables` on the Hono context; downstream handlers get `c.var.user` without casting |
+| Technology           | Version               | Purpose                                                     | Why Recommended                                                                                                                                                          |
+| -------------------- | --------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Bun                  | 1.3.10                | Runtime, SQLite access, crypto                              | Keep it unchanged. The service already uses Bun successfully, and the current DB layer already enables `PRAGMA foreign_keys = ON`, which matters for boundary integrity. |
+| TypeScript + Effect  | 5.8.2 + 4.0.0-beta.31 | Typed service boundaries and request/context propagation    | Keep unchanged. Use Effect services for ownership/identity gate helpers instead of adding a second backend framework.                                                    |
+| Hono + hono-openapi  | 4.10.7 + 1.1.2        | HTTP routes, middleware, typed request boundary enforcement | Keep unchanged, but add reusable ownership middleware for session-derived resources so message/part routes fail before handler logic runs.                               |
+| Drizzle ORM + SQLite | 1.0.0-beta.16-ea816b6 | Schema enforcement, migrations, indexes, foreign keys       | This milestone needs stronger DB constraints, not a new database. Drizzle already supports SQLite foreign keys, composite keys, and indexes.                             |
 
-**Pattern — use `verifyToken`, not a static token list:**
+### Supporting Libraries
 
-```ts
-// src/server/middleware/user-auth.ts
-import { createMiddleware } from "hono/factory"
-import { bearerAuth } from "hono/bearer-auth"
-import { UserContext } from "../user/user-context"
-import { UserService } from "../user/user"
+| Library                             | Version  | Purpose                                                                     | When to Use                                                                                                                                               |
+| ----------------------------------- | -------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| zod                                 | 4.1.8    | Validate external identity references and boundary-safe admin/sync payloads | Use for any user provisioning or deactivation payload accepted from the frontend/admin service. Validate only IDs, names, status, quotas, and allowlists. |
+| hono/factory `createMiddleware`     | 4.10.7   | Typed ownership guards for `session`, `message`, and `part` routes          | Use when a route touches session-derived resources and must resolve ownership once, then short-circuit with 404/403.                                      |
+| `bun:sqlite` foreign keys + indexes | built-in | DB-level integrity for resource chains and retained accounting              | Use for `session -> message -> part` integrity and `usage -> user` retention rules.                                                                       |
+| bcrypt                              | existing | Existing API key verification                                               | Keep as-is for this milestone. Do not expand auth scope just because registration is moving elsewhere.                                                    |
 
-// Typed Hono Variables so c.var.user is available downstream
-export type UserVar = { user: { id: string; name: string } | null }
+### Development Tools
 
-export const userAuth = createMiddleware<{ Variables: UserVar }>(async (c, next) => {
-  const password = Flag.OPENCODE_SERVER_PASSWORD
-  // If no multi-user mode, skip — preserves backward compat
-  if (!password) {
-    c.set("user", null)
-    return next()
-  }
-  return bearerAuth({
-    verifyToken: async (token, c) => {
-      const user = await UserService.byKey(token) // hash-lookup in DB
-      if (!user) return false
-      c.set("user", user)
-      return true
-    },
-  })(c, next)
-})
+| Tool            | Purpose                                             | Notes                                                                                   |
+| --------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| drizzle-kit     | Generate migrations for new constraints and columns | Use for `status/time_deleted`, revocation fields, composite indexes, and FK tightening. |
+| `bun typecheck` | Verify typed middleware and schema changes          | Run from `packages/opencode`, per repo rules.                                           |
+
+## Stack-Level Changes Needed
+
+### 1. Keep the runtime/web stack; add an ownership-guard layer
+
+Do **not** add a new auth framework.
+
+Use Hono middleware plus the existing `UserContext` pattern to enforce ownership at the route boundary:
+
+- session routes: resolve session by current user context
+- message routes: resolve owning session first, then message
+- part routes: resolve owning session first, then part
+
+Why this matters: the current gap is not missing auth technology. It is incomplete reuse of the existing auth identity at every session-derived boundary.
+
+### 2. Tighten the SQLite schema instead of denormalizing ownership everywhere
+
+Recommended schema changes:
+
+- add `user.status` or `time_deleted`
+- add `user.external_id` if another service is the source of truth
+- add `api_key.time_revoked`
+- add a foreign key from `usage.user_id` to `user.id`
+- add stronger message/part integrity constraints
+
+Most important DB tightening:
+
+1. **Retain user rows as tombstones instead of hard deleting them**
+   - replace destructive delete flows with `status = "disabled" | "deleted"` or `time_deleted`
+   - revoke API keys instead of deleting accounting history
+2. **Make accounting rows point at a real user row**
+   - `usage.user_id` should reference `user.id`
+   - do not null out retained usage rows
+3. **Enforce session-derived integrity in the DB**
+   - `message.session_id -> session.id` already exists indirectly through route logic; keep using session as the ownership root
+   - `part.session_id` should be tied to the owning session path, ideally with a composite relation between message and part so a part cannot reference a message from one session and a session from another
+
+Why this matters: stricter isolation comes from making invalid cross-session states impossible, not just unlikely.
+
+### 3. Add indexes for real isolation queries
+
+Current code filters heavily by `user_id`, `project_id`, `workspace_id`, and archival state.
+
+Add or adjust indexes around the actual access paths used in `src/session/index.ts`:
+
+- `session(project_id, user_id, time_updated)`
+- `session(user_id, time_archived, time_updated)` for global/user listing
+- `usage(user_id, date)` for retained daily token stats
+- any child-key indexes required by new foreign keys
+
+Why this matters: SQLite foreign key docs explicitly recommend indexing child keys, and ownership enforcement should not regress into table scans as user counts grow.
+
+### 4. Narrow the user model to isolation metadata only
+
+This service still needs a user record, but only for isolation and accounting.
+
+The user table should hold:
+
+- internal `id`
+- optional upstream `external_id`
+- display `name`
+- `status`/`time_deleted`
+- quotas
+- model allowlist
+- timestamps
+
+It should **not** hold:
+
+- email verification state
+- password hashes
+- signup tokens
+- invite flows
+- profile onboarding fields
+- session-cookie or JWT refresh metadata
+
+Why this matters: removing registration responsibility does **not** mean removing user identity entirely. It means storing only the minimum metadata required to isolate requests and account for usage.
+
+### 5. Add an upstream identity integration point, not a registration system
+
+If another service owns registration, this service should integrate through one narrow path:
+
+- admin-only provisioning/sync endpoint, or
+- signed webhook/event ingestion endpoint
+
+Use Zod for payload validation. Accept only:
+
+- external user ID
+- display name
+- active/deleted/disabled state
+- quotas
+- model allowlist
+
+Do not accept or generate signup artifacts.
+
+Why this matters: this keeps the service aligned with its new boundary while still letting an upstream system create, disable, and reconcile user identities.
+
+## Installation
+
+```bash
+# Core
+# no new runtime packages required
+
+# Supporting
+# no new packages required
+
+# Dev dependencies
+# no new packages required
 ```
-
-Confidence: HIGH — verified against Hono 4.10.7 official docs (`verifyToken` option, `createMiddleware` factory).
-
----
-
-### API Key Hashing
-
-| Technology               | Version  | Purpose                   | Why                                                                                                |
-| ------------------------ | -------- | ------------------------- | -------------------------------------------------------------------------------------------------- |
-| `node:crypto` (built-in) | Bun 1.3+ | Hash API keys for storage | Zero deps; Bun ships full Node.js `crypto` compat; SHA-256 is correct for API keys (not passwords) |
-
-**Use SHA-256, not Argon2/bcrypt, for API keys.** This is the critical distinction:
-
-- Passwords need slow hashing (bcrypt/argon2) because attackers can brute-force short human-chosen strings.
-- API keys are 32+ bytes of cryptographically random data — brute-force is computationally infeasible regardless of hash speed. SHA-256 is correct and fast for lookup.
-- `argon2` requires a native C++ addon (node-gyp, prebuilt binaries per platform/arch). This is a build-time liability for a CLI distributed as a Bun binary. Avoid it.
-
-**Pattern:**
-
-```ts
-import { createHash, randomBytes } from "node:crypto"
-
-// Generate: prefix makes keys identifiable in logs/leaks
-export function generate() {
-  return "oc_" + randomBytes(32).toString("hex") // 64 hex chars = 256 bits
-}
-
-// Hash for storage — fast lookup, no salt needed (key is already random)
-export function hash(key: string) {
-  return createHash("sha256").update(key).digest("hex")
-}
-
-// Constant-time compare to prevent timing attacks
-export function verify(key: string, stored: string) {
-  const h = hash(key)
-  // timingSafeEqual requires same-length Buffers
-  return timingSafeEqual(Buffer.from(h), Buffer.from(stored))
-}
-```
-
-Confidence: HIGH — standard industry pattern (Stripe, GitHub use SHA-256 for API keys); `node:crypto` is stable in Bun 1.3+.
-
----
-
-### UserContext (AsyncLocalStorage)
-
-| Technology                             | Version  | Purpose                               | Why                                                                                                    |
-| -------------------------------------- | -------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `node:async_hooks` `AsyncLocalStorage` | built-in | Per-request user identity propagation | Exact same mechanism as existing `WorkspaceContext` and `Instance` — zero new deps, consistent pattern |
-
-**Follow the existing `Context.create` utility exactly:**
-
-```ts
-// src/user/user-context.ts
-import { Context } from "../util/context"
-
-interface UserCtx {
-  id: string
-  name: string
-}
-
-const ctx = Context.create<UserCtx | null>("user")
-
-export const UserContext = {
-  provide<R>(user: UserCtx | null, fn: () => R): Promise<R> {
-    return ctx.provide(user, fn as () => Promise<R>)
-  },
-  get current() {
-    try {
-      return ctx.use()
-    } catch {
-      return null
-    }
-  },
-}
-```
-
-Wire it in `server.ts` after the auth middleware resolves the user, wrapping the same `Instance.provide` call that already exists:
-
-```ts
-// Inside the existing workspace/instance middleware in server.ts
-return WorkspaceContext.provide({
-  workspaceID: ...,
-  async fn() {
-    return UserContext.provide(c.var.user ?? null, async () =>
-      Instance.provide({ directory, init: InstanceBootstrap, fn: next })
-    )
-  },
-})
-```
-
-Confidence: HIGH — `AsyncLocalStorage` is Stability 2 (stable) in Node.js docs; Bun 1.3+ fully supports it; pattern is already proven in this codebase.
-
----
-
-### Drizzle Schema Additions
-
-| Technology                | Version                  | Purpose                                                    | Why                                                                        |
-| ------------------------- | ------------------------ | ---------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `drizzle-orm` sqlite-core | 1.0.0-beta.16 (existing) | `UserTable`, `ApiKeyTable`; `user_id` FK on `SessionTable` | No new ORM; extend existing schema files following established conventions |
-
-**No RLS.** Drizzle RLS is Postgres-only. SQLite has no native RLS. Isolation is enforced at the query layer — every session query filters by `user_id` in application code. This is the correct approach for SQLite.
-
-**New tables:**
-
-```ts
-// src/user/user.sql.ts
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core"
-import { Timestamps } from "../storage/schema.sql"
-
-export const UserTable = sqliteTable("user", {
-  id: text().primaryKey(), // ulid
-  name: text().notNull(),
-  quota_daily_tokens: integer(), // null = unlimited
-  quota_max_sessions: integer(), // null = unlimited
-  quota_max_calls: integer(), // null = unlimited
-  model_allowlist: text({ mode: "json" }).$type<string[] | null>(),
-  ...Timestamps,
-  time_disabled: integer(), // null = active
-})
-
-export const ApiKeyTable = sqliteTable(
-  "api_key",
-  {
-    id: text().primaryKey(), // ulid
-    user_id: text()
-      .notNull()
-      .references(() => UserTable.id, { onDelete: "cascade" }),
-    hash: text().notNull().unique(), // sha256 hex of raw key
-    name: text().notNull(), // human label e.g. "laptop"
-    ...Timestamps,
-    time_last_used: integer(),
-    time_revoked: integer(), // null = active
-  },
-  (t) => [index("api_key_hash_idx").on(t.hash), index("api_key_user_idx").on(t.user_id)],
-)
-```
-
-**SessionTable addition** (migration, not replace):
-
-```ts
-// Add to existing SessionTable columns:
-user_id: text(),   // nullable — backward compat with anonymous/single-user mode
-// Add to indexes array:
-index("session_user_idx").on(table.user_id),
-```
-
-**Usage tracking table:**
-
-```ts
-// src/user/usage.sql.ts
-export const UsageTable = sqliteTable(
-  "usage",
-  {
-    id: text().primaryKey(),
-    user_id: text()
-      .notNull()
-      .references(() => UserTable.id, { onDelete: "cascade" }),
-    session_id: text().$type<SessionID>(),
-    model: text().notNull(),
-    tokens_in: integer().notNull().default(0),
-    tokens_out: integer().notNull().default(0),
-    ...Timestamps,
-  },
-  (t) => [index("usage_user_idx").on(t.user_id), index("usage_user_time_idx").on(t.user_id, t.time_created)],
-)
-```
-
-Confidence: HIGH — verified against Drizzle 1.0.0-beta.16 docs and existing schema conventions in this codebase.
-
----
-
-### Quota Enforcement
-
-No new library. Enforce in application code at two points:
-
-1. **Session creation** — query `UsageTable` for active session count, reject if over `quota_max_sessions`.
-2. **Agent loop** (`src/session/prompt.ts`) — check call counter against `quota_max_calls`; check rolling 24h token sum against `quota_daily_tokens`. Hard reject with `HTTPException(429)`.
-
-```ts
-// Pattern for quota check — inline, no abstraction needed
-const today = Date.now() - 86_400_000
-const tokens = await db
-  .select({ total: sum(UsageTable.tokens_in) + sum(UsageTable.tokens_out) })
-  .from(UsageTable)
-  .where(and(eq(UsageTable.user_id, uid), gte(UsageTable.time_created, today)))
-if (tokens > user.quota_daily_tokens) throw new HTTPException(429, { message: "daily token quota exceeded" })
-```
-
-Confidence: MEDIUM — pattern is standard; specific Effect integration points need phase-level research.
-
----
-
-## What NOT to Use
-
-| Rejected                                 | Why                                                                                                                                          |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| JWT                                      | Out of scope per PROJECT.md; adds complexity (signing keys, expiry, refresh) with no benefit for a local service mode                        |
-| `argon2` / `bcrypt`                      | Native addons with build-time complexity; wrong tool for API keys (which are already high-entropy random); SHA-256 is correct                |
-| Drizzle RLS                              | Postgres-only feature; SQLite has no RLS; application-layer filtering is the right approach                                                  |
-| External quota/metering service          | SQLite is sufficient per PROJECT.md; no billing integration in scope                                                                         |
-| `hono/jwt` middleware                    | JWT is out of scope; bearer-auth with `verifyToken` is the right primitive                                                                   |
-| `c.set("user", ...)` as sole propagation | Hono context doesn't survive outside the request handler chain (e.g. Effect fibers, Bus callbacks); ALS is required for cross-cutting access |
-
----
 
 ## Alternatives Considered
 
-| Category            | Recommended                        | Alternative                    | Why Not                                                                             |
-| ------------------- | ---------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------- |
-| Key hashing         | `node:crypto` SHA-256              | `argon2`                       | Native addon; wrong algorithm class for random keys                                 |
-| Key hashing         | `node:crypto` SHA-256              | `bcrypt`                       | Same — slow hash designed for passwords, not random tokens                          |
-| Auth middleware     | `hono/bearer-auth` + `verifyToken` | Custom middleware from scratch | `bearerAuth` handles header parsing, 401 format, OPTIONS skip; no reason to rewrite |
-| Context propagation | `Context.create` (ALS)             | `c.var.user` only              | Hono vars don't propagate into Effect fibers or native callbacks; ALS does          |
-| User isolation      | App-layer `WHERE user_id = ?`      | Postgres RLS                   | SQLite doesn't support RLS; app-layer is correct and explicit                       |
-| Key generation      | `crypto.randomBytes(32)` hex       | UUID v4                        | 256 bits vs 122 bits of entropy; hex is URL-safe without encoding                   |
+| Recommended                                        | Alternative                                   | When to Use Alternative                                                                                                                                |
+| -------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Hono ownership middleware + existing `UserContext` | New auth framework                            | Only if the product later expands into full SSO/session auth, which this milestone explicitly avoids.                                                  |
+| Tombstoned users with revoked keys                 | Hard-delete users                             | Only if retained accounting is no longer required, which conflicts with this milestone.                                                                |
+| Session-root ownership with tighter FK chain       | Add `user_id` to every message and part row   | Only if direct child-table ownership queries become dominant and duplication is worth the consistency cost. For now, keep ownership rooted at session. |
+| Narrow sync/provisioning endpoint                  | Rebuild signup/onboarding inside this service | Never for this milestone.                                                                                                                              |
 
----
+## What NOT to Use
 
-## Migration Command
+| Avoid                                                                   | Why                                                                                   | Use Instead                                                               |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Auth.js / Clerk / Better Auth / Ory / Supabase Auth inside this service | Expands scope into registration and user-lifecycle product work                       | Keep API key auth here and let the upstream service own registration.     |
+| JWT/session-cookie rollout                                              | `PROJECT.md` explicitly keeps JWT out of scope and API key auth is already sufficient | Keep current API key auth.                                                |
+| New password, invite, reset, verification tables                        | Recreates the registration surface this milestone is removing                         | Store only isolation/accounting metadata.                                 |
+| Hard-delete user records by default                                     | Breaks retained usage accounting or forces lossy nulling                              | Tombstone users, revoke keys, and hide usage endpoints for deleted users. |
+| New database or external billing/metering stack                         | Unnecessary for this milestone; SQLite is already sufficient                          | Tighten Drizzle schema and queries in place.                              |
 
-```bash
-# From packages/opencode
-bun run db generate --name add-multi-user-isolation
-```
+## Stack Patterns by Variant
 
-Generates `migration/<timestamp>_add-multi-user-isolation/migration.sql`.
+**If the upstream identity service pushes lifecycle events:**
 
----
+- Keep Hono + Zod
+- Add one signed sync/webhook endpoint
+- Persist `external_id`, `status`, and quota fields only
+
+**If this service remains admin-provisioned for now:**
+
+- Keep current admin endpoints
+- Reframe them as provisioning/deactivation, not signup
+- Do not add email/password or onboarding behavior
+
+## Version Compatibility
+
+| Package A            | Compatible With                          | Notes                                                                                            |
+| -------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Bun 1.3.10           | Drizzle bun-sqlite 1.0.0-beta.16-ea816b6 | Existing repo already uses this successfully and enables SQLite foreign keys at connection open. |
+| Hono 4.10.7          | hono-openapi 1.1.2                       | Good fit for typed route middleware and request validation.                                      |
+| Hono 4.10.7          | Zod 4.1.8                                | Matches the current validation stack.                                                            |
+| Effect 4.0.0-beta.31 | Existing `Context.create` / ALS pattern  | Good fit for keeping identity and ownership helpers inside existing service boundaries.          |
 
 ## Sources
 
-- Hono bearer-auth docs (verified): https://hono.dev/docs/middleware/builtin/bearer-auth
-- Hono createMiddleware factory (verified): https://hono.dev/docs/helpers/factory
-- Node.js AsyncLocalStorage (Stability 2, verified): https://nodejs.org/api/async_context.html
-- Drizzle RLS docs (Postgres-only, verified): https://orm.drizzle.team/docs/rls
-- node-argon2 README (native addon requirement confirmed): https://github.com/ranisalt/node-argon2
-- Existing codebase patterns: `src/util/context.ts`, `src/control-plane/workspace-context.ts`, `src/session/session.sql.ts`, `src/server/server.ts`
+- Hono Context docs — request-scoped variables via `c.set` / `c.get`: https://hono.dev/docs/api/context
+- Hono middleware guide — early exit and typed custom middleware: https://hono.dev/docs/guides/middleware
+- Drizzle indexes and constraints docs — SQLite foreign keys, composite keys, indexes: https://orm.drizzle.team/docs/indexes-constraints
+- SQLite foreign key docs — enforcement requires `PRAGMA foreign_keys = ON`, child-key indexes recommended: https://www.sqlite.org/foreignkeys.html
+- Zod docs — current Zod 4 status and validation role: https://zod.dev/
+- Existing codebase: `packages/opencode/src/storage/db.ts`, `packages/opencode/src/server/server.ts`, `packages/opencode/src/server/user-auth.ts`, `packages/opencode/src/session/session.sql.ts`, `packages/opencode/src/session/index.ts`, `packages/opencode/src/user/index.ts`, `packages/opencode/src/user/user.sql.ts`, `packages/opencode/src/user/usage.sql.ts`
+
+---
+
+_Stack research for: OpenCode Multi-User Isolation v1.1 boundary tightening_
+_Researched: 2026-03-18_
