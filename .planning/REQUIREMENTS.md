@@ -7,10 +7,10 @@
 
 ### User Identity
 
-- [ ] **AUTH-01**: Server can authenticate requests via API key in `x-opencode-api-key` header
-- [ ] **AUTH-02**: API keys are stored as bcrypt hashes, never plaintext
-- [ ] **AUTH-03**: UserContext propagates through AsyncLocalStorage alongside Instance
-- [ ] **AUTH-04**: Requests without API key fall back to anonymous mode (user_id = null)
+- [x] **AUTH-01**: Server can authenticate requests via API key in `x-opencode-api-key` header
+- [x] **AUTH-02**: API keys are stored as bcrypt hashes, never plaintext
+- [x] **AUTH-03**: UserContext propagates through AsyncLocalStorage alongside Instance
+- [x] **AUTH-04**: Requests without API key fall back to anonymous mode (user_id = null)
 
 ### Session Ownership
 
@@ -91,10 +91,10 @@
 
 | Requirement | Phase   | Status   |
 | ----------- | ------- | -------- |
-| AUTH-01     | Phase 1 | Pending  |
-| AUTH-02     | Phase 1 | Pending  |
-| AUTH-03     | Phase 1 | Pending  |
-| AUTH-04     | Phase 1 | Pending  |
+| AUTH-01     | Phase 1 | Complete |
+| AUTH-02     | Phase 1 | Complete |
+| AUTH-03     | Phase 1 | Complete |
+| AUTH-04     | Phase 1 | Complete |
 | SESS-01     | Phase 2 | Complete |
 | SESS-02     | Phase 2 | Complete |
 | SESS-03     | Phase 2 | Complete |
