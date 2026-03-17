@@ -32,22 +32,22 @@
 
 ### Quota Enforcement
 
-- [ ] **QUOTA-01**: Agent call limit enforced in session prompt loop
-- [ ] **QUOTA-02**: Concurrent session limit checked at Session.create()
-- [ ] **QUOTA-03**: Daily token cap checked before LLM.stream()
-- [ ] **QUOTA-04**: Quota exceeded returns clear error (not silent failure)
+- [x] **QUOTA-01**: Agent call limit enforced in session prompt loop
+- [x] **QUOTA-02**: Concurrent session limit checked at Session.create()
+- [x] **QUOTA-03**: Daily token cap checked before LLM.stream()
+- [x] **QUOTA-04**: Quota exceeded returns clear error (not silent failure)
 
 ### Model Access Control
 
-- [ ] **MODEL-01**: User.model_allowlist stored as JSON string array
-- [ ] **MODEL-02**: Provider resolution checks allowlist before returning model
-- [ ] **MODEL-03**: Disallowed model returns clear error with allowed list
+- [x] **MODEL-01**: User.model_allowlist stored as JSON string array
+- [x] **MODEL-02**: Provider resolution checks allowlist before returning model
+- [x] **MODEL-03**: Disallowed model returns clear error with allowed list
 
 ### Usage Tracking
 
 - [x] **USAGE-01**: UsageTable records user_id, session_id, tokens, date
-- [ ] **USAGE-02**: Token counts extracted from LLM response metadata
-- [ ] **USAGE-03**: Usage written after each LLM.stream() completes
+- [x] **USAGE-02**: Token counts extracted from LLM response metadata
+- [x] **USAGE-03**: Usage written after each LLM.stream() completes
 - [x] **USAGE-04**: GET /user/:id/usage aggregates by date
 
 ## v2 Requirements
@@ -107,16 +107,16 @@
 | USER-04     | Phase 3 | Complete |
 | USER-05     | Phase 3 | Complete |
 | USER-06     | Phase 3 | Complete |
-| QUOTA-01    | Phase 4 | Pending  |
-| QUOTA-02    | Phase 4 | Pending  |
-| QUOTA-03    | Phase 4 | Pending  |
-| QUOTA-04    | Phase 4 | Pending  |
-| MODEL-01    | Phase 4 | Pending  |
-| MODEL-02    | Phase 4 | Pending  |
-| MODEL-03    | Phase 4 | Pending  |
+| QUOTA-01    | Phase 4 | Complete |
+| QUOTA-02    | Phase 4 | Complete |
+| QUOTA-03    | Phase 4 | Complete |
+| QUOTA-04    | Phase 4 | Complete |
+| MODEL-01    | Phase 4 | Complete |
+| MODEL-02    | Phase 4 | Complete |
+| MODEL-03    | Phase 4 | Complete |
 | USAGE-01    | Phase 4 | Complete |
-| USAGE-02    | Phase 4 | Pending  |
-| USAGE-03    | Phase 4 | Pending  |
+| USAGE-02    | Phase 4 | Complete |
+| USAGE-03    | Phase 4 | Complete |
 | USAGE-04    | Phase 4 | Complete |
 
 **Coverage:**
