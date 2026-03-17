@@ -90,4 +90,13 @@ describe("Session userID handling", () => {
     const row = Session.toRow(info as any)
     expect(row.user_id).toBeNull()
   })
+
+  test("createNext accepts userID parameter", () => {
+    // Test that createNext signature accepts userID
+    const input: Parameters<typeof Session.createNext>[0] = {
+      directory: "/test",
+      userID: "user_123" as any,
+    }
+    expect(input.userID).toBe("user_123" as any)
+  })
 })
