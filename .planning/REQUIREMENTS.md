@@ -16,10 +16,10 @@
 
 - [x] **SESS-01**: SessionTable has nullable `user_id` column
 - [x] **SESS-02**: Session.list() filters by user_id (or IS NULL for anonymous)
-- [ ] **SESS-03**: Session.get() enforces ownership check before returning
-- [ ] **SESS-04**: Session.create() assigns user_id from UserContext
+- [x] **SESS-03**: Session.get() enforces ownership check before returning
+- [x] **SESS-04**: Session.create() assigns user_id from UserContext
 - [x] **SESS-05**: Session.fork() preserves parent session's user_id
-- [ ] **SESS-06**: Session.remove() only allows deletion of owned sessions
+- [x] **SESS-06**: Session.remove() only allows deletion of owned sessions
 
 ### User Management
 
@@ -89,35 +89,35 @@
 
 ## Traceability
 
-| Requirement | Phase   | Status  |
-| ----------- | ------- | ------- |
-| AUTH-01     | Phase 1 | Pending |
-| AUTH-02     | Phase 1 | Pending |
-| AUTH-03     | Phase 1 | Pending |
-| AUTH-04     | Phase 1 | Pending |
+| Requirement | Phase   | Status   |
+| ----------- | ------- | -------- |
+| AUTH-01     | Phase 1 | Pending  |
+| AUTH-02     | Phase 1 | Pending  |
+| AUTH-03     | Phase 1 | Pending  |
+| AUTH-04     | Phase 1 | Pending  |
 | SESS-01     | Phase 2 | Complete |
 | SESS-02     | Phase 2 | Complete |
-| SESS-03     | Phase 2 | Pending |
-| SESS-04     | Phase 2 | Pending |
+| SESS-03     | Phase 2 | Complete |
+| SESS-04     | Phase 2 | Complete |
 | SESS-05     | Phase 2 | Complete |
-| SESS-06     | Phase 2 | Pending |
-| USER-01     | Phase 3 | Pending |
-| USER-02     | Phase 3 | Pending |
-| USER-03     | Phase 3 | Pending |
-| USER-04     | Phase 3 | Pending |
-| USER-05     | Phase 3 | Pending |
-| USER-06     | Phase 3 | Pending |
-| QUOTA-01    | Phase 4 | Pending |
-| QUOTA-02    | Phase 4 | Pending |
-| QUOTA-03    | Phase 4 | Pending |
-| QUOTA-04    | Phase 4 | Pending |
-| MODEL-01    | Phase 4 | Pending |
-| MODEL-02    | Phase 4 | Pending |
-| MODEL-03    | Phase 4 | Pending |
-| USAGE-01    | Phase 4 | Pending |
-| USAGE-02    | Phase 4 | Pending |
-| USAGE-03    | Phase 4 | Pending |
-| USAGE-04    | Phase 4 | Pending |
+| SESS-06     | Phase 2 | Complete |
+| USER-01     | Phase 3 | Pending  |
+| USER-02     | Phase 3 | Pending  |
+| USER-03     | Phase 3 | Pending  |
+| USER-04     | Phase 3 | Pending  |
+| USER-05     | Phase 3 | Pending  |
+| USER-06     | Phase 3 | Pending  |
+| QUOTA-01    | Phase 4 | Pending  |
+| QUOTA-02    | Phase 4 | Pending  |
+| QUOTA-03    | Phase 4 | Pending  |
+| QUOTA-04    | Phase 4 | Pending  |
+| MODEL-01    | Phase 4 | Pending  |
+| MODEL-02    | Phase 4 | Pending  |
+| MODEL-03    | Phase 4 | Pending  |
+| USAGE-01    | Phase 4 | Pending  |
+| USAGE-02    | Phase 4 | Pending  |
+| USAGE-03    | Phase 4 | Pending  |
+| USAGE-04    | Phase 4 | Pending  |
 
 **Coverage:**
 

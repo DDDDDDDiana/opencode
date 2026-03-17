@@ -46,8 +46,8 @@
 
 Plans:
 
-- [ ] 02-01-PLAN.md — Add user_id column to SessionTable, filter create() and list()
-- [ ] 02-02-PLAN.md — Ownership checks in get(), remove(), and fork()
+- [x] 02-01-PLAN.md — Add user_id column to SessionTable, filter create() and list()
+- [x] 02-02-PLAN.md — Ownership checks in get(), remove(), and fork()
 - [ ] 02-03-PLAN.md — Ownership filtering in listGlobal() and children()
 - [ ] 02-04-PLAN.md — Generate Drizzle migration and full typecheck
 
@@ -80,12 +80,12 @@ Plans:
 
 ## Progress
 
-| Phase                  | Plans Complete | Status      | Completed |
-| ---------------------- | -------------- | ----------- | --------- |
-| 1. Identity Foundation | 0/4            | Planned     | -         |
-| 2. Session Ownership   | 0/?            | Not started | -         |
-| 3. User Management API | 0/?            | Not started | -         |
-| 4. Resource Protection | 0/?            | Not started | -         |
+| Phase                  | Plans Complete | Status      | Completed  |
+| ---------------------- | -------------- | ----------- | ---------- |
+| 1. Identity Foundation | 0/4            | Planned     | -          |
+| 2. Session Ownership   | 2/4            | In Progress | 2026-03-17 |
+| 3. User Management API | 0/?            | Not started | -          |
+| 4. Resource Protection | 0/?            | Not started | -          |
 
 ---
 
