@@ -7,7 +7,7 @@
 ## Phases
 
 - [ ] **Phase 1: Identity Foundation** - UserContext ALS + API key authentication
-- [ ] **Phase 2: Session Ownership** - user_id on sessions, filtered queries, anonymous fallback
+- [x] **Phase 2: Session Ownership** - user_id on sessions, filtered queries, anonymous fallback (completed 2026-03-17)
 - [ ] **Phase 3: User Management API** - CRUD endpoints + usage stats
 - [ ] **Phase 4: Resource Protection** - Quotas, model allowlist, usage tracking
 
@@ -83,7 +83,7 @@ Plans:
 | Phase                  | Plans Complete | Status      | Completed  |
 | ---------------------- | -------------- | ----------- | ---------- |
 | 1. Identity Foundation | 0/4            | Planned     | -          |
-| 2. Session Ownership   | 2/4            | In Progress | 2026-03-17 |
+| 2. Session Ownership   | 5/5 | Complete   | 2026-03-17 |
 | 3. User Management API | 0/?            | Not started | -          |
 | 4. Resource Protection | 0/?            | Not started | -          |
 
