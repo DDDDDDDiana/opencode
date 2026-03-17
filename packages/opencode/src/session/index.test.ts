@@ -99,4 +99,24 @@ describe("Session userID handling", () => {
     }
     expect(input.userID).toBe("user_123" as any)
   })
+
+  test("get() signature exists", () => {
+    // Verify get function exists for filtering implementation
+    expect(typeof Session.get).toBe("function")
+  })
+
+  test("list() signature exists", () => {
+    // Verify list function exists for filtering implementation
+    expect(typeof Session.list).toBe("function")
+  })
+
+  test("listGlobal() signature exists", () => {
+    // Verify listGlobal function exists for filtering implementation
+    expect(typeof Session.listGlobal).toBe("function")
+  })
+
+  test("children() signature exists", () => {
+    // Verify children function exists for filtering implementation
+    expect(typeof Session.children).toBe("function")
+  })
 })
