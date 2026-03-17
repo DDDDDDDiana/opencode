@@ -18,6 +18,9 @@ import { iife } from "@/util/iife"
 import { Global } from "../global"
 import path from "path"
 import { Filesystem } from "../util/filesystem"
+import { ModelAccessError } from "@/user/errors"
+import { User } from "@/user"
+import { UserContext } from "@/user/user-context"
 
 // Direct imports for bundled providers
 import { createAmazonBedrock, type AmazonBedrockProviderSettings } from "@ai-sdk/amazon-bedrock"
@@ -1230,6 +1233,12 @@ export namespace Provider {
       const matches = fuzzysort.go(modelID, availableModels, { limit: 3, threshold: -10000 })
       const suggestions = matches.map((m) => m.target)
       throw new ModelNotFoundError({ providerID, modelID, suggestions })
+    }
+    const uid = UserContext.userID
+    if (uid) {
+      const user = await User.get(uid)
+      if (user.modelAllowlist !== null && !user.modelAllowlist.includes(modelID))
+        throw new ModelAccessError({ model: modelID, allowed: user.modelAllowlist })
     }
     return info
   }
