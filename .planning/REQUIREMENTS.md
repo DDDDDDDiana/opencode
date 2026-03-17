@@ -26,8 +26,8 @@
 - [x] **USER-01**: UserTable stores id, name, api_key_hash, quotas, timestamps
 - [ ] **USER-02**: POST /user creates user and returns plaintext API key (once)
 - [ ] **USER-03**: GET /user/:id returns user info (excluding api_key_hash)
-- [ ] **USER-04**: PATCH /user/:id updates quota settings
-- [ ] **USER-05**: DELETE /user/:id removes user and orphans their sessions
+- [x] **USER-04**: PATCH /user/:id updates quota settings
+- [x] **USER-05**: DELETE /user/:id removes user and orphans their sessions
 - [ ] **USER-06**: GET /user/:id/usage returns token consumption stats
 
 ### Quota Enforcement
@@ -104,8 +104,8 @@
 | USER-01     | Phase 3 | Complete |
 | USER-02     | Phase 3 | Pending  |
 | USER-03     | Phase 3 | Pending  |
-| USER-04     | Phase 3 | Pending  |
-| USER-05     | Phase 3 | Pending  |
+| USER-04     | Phase 3 | Complete |
+| USER-05     | Phase 3 | Complete |
 | USER-06     | Phase 3 | Pending  |
 | QUOTA-01    | Phase 4 | Pending  |
 | QUOTA-02    | Phase 4 | Pending  |

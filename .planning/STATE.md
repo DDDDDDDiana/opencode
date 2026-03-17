@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 3
-current_plan: "02"
-status: in_progress
-last_updated: "2026-03-17T12:24:53.271Z"
+current_plan: Not started
+status: executing
+last_updated: "2026-03-17T12:31:20.129Z"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
-  percent: 60
+  completed_plans: 7
+  percent: 70
 ---
 
 # Project State: OpenCode Multi-User Isolation
@@ -29,9 +29,9 @@ progress:
 ## Current Position
 
 **Phase:** 3 - User Management API  
-**Plan:** 03-01 complete (1/4 plans done)  
+**Plan:** 03-02 complete (2/4 plans done)  
 **Status:** In progress
-**Progress:** [██████░░░░] 60%
+**Progress:** [███████░░░] 70%
 
 ## Performance Metrics
 
@@ -62,24 +62,27 @@ progress:
 | Phase 02 P04 | 7    | 2 tasks        | 3 files |
 | Phase 02 P05 | 3    | 1 tasks        | 1 files |
 | Phase 03 P01 | 8    | 3 tasks        | 2 files |
+| Phase 03 P02 | 5    | 2 tasks        | 2 files |
 
 ## Accumulated Context
 
 ### Key Decisions
 
-| Decision                                          | Rationale                                              | Date       |
-| ------------------------------------------------- | ------------------------------------------------------ | ---------- |
-| API key auth (not JWT)                            | Simpler, sufficient for service mode                   | 2026-03-17 |
-| Hard quota rejection (not soft downgrade)         | Predictable behavior, easier to reason about           | 2026-03-17 |
-| Parallel UserContext ALS (not extending Instance) | Keeps Instance clean, follows WorkspaceContext pattern | 2026-03-17 |
-| user_id nullable on SessionTable                  | Backward compatible with existing deployments          | 2026-03-17 |
-| Use UserContext.get() not .use() in sessions      | Avoid throwing when context missing, handle anonymous  | 2026-03-17 |
-| Filter list() by user_id in all cases             | Enforce isolation at query level, prevent cross-user   | 2026-03-17 |
-| get() returns 404 for unauthorized access         | Indistinguishable from not found, prevents enumeration | 2026-03-17 |
-| remove() uses SQL WHERE for ownership             | Prevents cross-user deletion at query level            | 2026-03-17 |
-| fork() inherits parent user_id via param          | Guarantees ownership inheritance regardless of caller  | 2026-03-17 |
-| z.custom<UserID>() for branded type in zod schema | Avoids unsafe cast, preserves type safety              | 2026-03-17 |
-| JSON.stringify/parse for model_allowlist          | SQLite has no array type, JSON string is idiomatic     | 2026-03-17 |
+| Decision                                           | Rationale                                              | Date       |
+| -------------------------------------------------- | ------------------------------------------------------ | ---------- |
+| API key auth (not JWT)                             | Simpler, sufficient for service mode                   | 2026-03-17 |
+| Hard quota rejection (not soft downgrade)          | Predictable behavior, easier to reason about           | 2026-03-17 |
+| Parallel UserContext ALS (not extending Instance)  | Keeps Instance clean, follows WorkspaceContext pattern | 2026-03-17 |
+| user_id nullable on SessionTable                   | Backward compatible with existing deployments          | 2026-03-17 |
+| Use UserContext.get() not .use() in sessions       | Avoid throwing when context missing, handle anonymous  | 2026-03-17 |
+| Filter list() by user_id in all cases              | Enforce isolation at query level, prevent cross-user   | 2026-03-17 |
+| get() returns 404 for unauthorized access          | Indistinguishable from not found, prevents enumeration | 2026-03-17 |
+| remove() uses SQL WHERE for ownership              | Prevents cross-user deletion at query level            | 2026-03-17 |
+| fork() inherits parent user_id via param           | Guarantees ownership inheritance regardless of caller  | 2026-03-17 |
+| z.custom<UserID>() for branded type in zod schema  | Avoids unsafe cast, preserves type safety              | 2026-03-17 |
+| JSON.stringify/parse for model_allowlist           | SQLite has no array type, JSON string is idiomatic     | 2026-03-17 |
+| User.update() conditional spread for partial patch | Only set provided fields; null is valid to clear quota | 2026-03-17 |
+| User.remove() orphans sessions before delete       | Avoids FK constraint issues, preserves session history | 2026-03-17 |
 
 ### Active TODOs
 
@@ -95,6 +98,7 @@ None
 
 ### Recent Changes
 
+- 2026-03-17: Completed Phase 3 Plan 02 - User.update() and User.remove() implemented, session orphaning on delete
 - 2026-03-17: Completed Phase 3 Plan 01 - UserTable extended, User.create() and User.get() implemented
 - 2026-03-17: Completed Phase 2 Plan 05 - remove() now propagates NotFoundError, SESS-06 satisfied
 - 2026-03-17: Completed Phase 2 Plan 04 - Drizzle migration generated, zero type errors in session code
@@ -110,16 +114,14 @@ None
 
 ## Session Continuity
 
-**Next Action:** Execute Phase 3 Plan 02.
+**Next Action:** Execute Phase 3 Plan 03.
 
 **Context for Next Session:**
 
-- Phase 3 Plan 01 complete: UserTable has name + quota columns, User.create() and User.get() implemented
-- User.create() generates API key, stores bcrypt hash, returns plaintext key once
-- User.get() returns Info without exposing hash, throws NotFoundError if missing
-- model_allowlist stored as JSON string, parsed on read
-- Requirement USER-01 satisfied
-- Next: Execute Phase 3 Plan 02
+- Phase 3 Plan 02 complete: User.update() patches quotas/allowlist, User.remove() orphans sessions then deletes user
+- session.sql.ts now has user_id column synced with migration 20260317110427_add_session_user_id
+- Requirements USER-04 and USER-05 satisfied
+- Next: Execute Phase 3 Plan 03
 
 ---
 
