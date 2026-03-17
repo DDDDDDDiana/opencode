@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 3
 current_plan: Not started
-status: executing
-last_updated: "2026-03-17T12:35:57.221Z"
+status: completed
+last_updated: "2026-03-17T12:42:44.422Z"
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 10
-  completed_plans: 8
-  percent: 80
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State: OpenCode Multi-User Isolation
@@ -29,9 +29,9 @@ progress:
 ## Current Position
 
 **Phase:** 3 - User Management API  
-**Plan:** 03-03 complete (3/4 plans done)  
-**Status:** In progress
-**Progress:** [████████░░] 80%
+**Plan:** 03-04 complete (4/4 plans done)  
+**Status:** Phase complete
+**Progress:** [██████████] 100%
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ progress:
 | Phase 03 P01 | 8    | 3 tasks        | 2 files |
 | Phase 03 P02 | 5    | 2 tasks        | 2 files |
 | Phase 03 P03 | 2    | 2 tasks        | 2 files |
+| Phase 03 P04 | 2    | 2 tasks        | 2 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,8 @@ progress:
 | User.remove() orphans sessions before delete       | Avoids FK constraint issues, preserves session history | 2026-03-17 |
 | Usage.record() is synchronous (no async)           | Database.use() is sync, no await needed                | 2026-03-17 |
 | stats() sorts in JS not SQL                        | Simpler, result sets are small per user                | 2026-03-17 |
+| Mount /user before Instance middleware             | User endpoints need no directory context               | 2026-03-17 |
+| NotFoundError auto-maps to 404 in onError handler  | No manual catch needed in route handlers               | 2026-03-17 |
 
 ### Active TODOs
 
@@ -101,6 +104,7 @@ None
 
 ### Recent Changes
 
+- 2026-03-17: Completed Phase 3 Plan 04 - UserRoutes (5 endpoints) created and mounted in server.ts
 - 2026-03-17: Completed Phase 3 Plan 03 - UsageTable schema and Usage.record()/stats() implemented
 - 2026-03-17: Completed Phase 3 Plan 02 - User.update() and User.remove() implemented, session orphaning on delete
 - 2026-03-17: Completed Phase 3 Plan 01 - UserTable extended, User.create() and User.get() implemented
@@ -118,15 +122,15 @@ None
 
 ## Session Continuity
 
-**Next Action:** Execute Phase 3 Plan 04.
+**Next Action:** Execute Phase 4.
 
 **Context for Next Session:**
 
-- Phase 3 Plan 03 complete: UsageTable schema and Usage.record()/stats() implemented
-- usage.sql.ts has user_id, session_id, tokens, date columns with indexes
-- usage.ts has Usage.record() (sync insert) and Usage.stats() (aggregate by date)
-- Requirements USAGE-01 and USAGE-04 satisfied
-- Next: Execute Phase 3 Plan 04
+- Phase 3 complete: all 4 plans done
+- routes/user.ts has 5 endpoints: POST /, GET /:userID, PATCH /:userID, DELETE /:userID, GET /:userID/usage
+- /user mounted in server.ts before Instance middleware (no directory context needed)
+- Requirements USER-02 through USER-06 satisfied
+- Next: Execute Phase 4
 
 ---
 
