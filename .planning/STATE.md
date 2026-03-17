@@ -1,77 +1,83 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
+milestone_name: multi-user-isolation
 current_phase: 4
-current_plan: Not started
-status: planning
-last_updated: "2026-03-17T14:56:42.090Z"
+current_plan: milestone complete
+status: milestone_complete
+last_updated: "2026-03-18T00:00:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 4
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 17
+  completed_plans: 17
   percent: 100
 ---
 
 # Project State: OpenCode Multi-User Isolation
 
-**Last Updated:** 2026-03-17  
+**Last Updated:** 2026-03-18  
 **Current Phase:** 4
-**Current Plan:** Not started
+**Current Plan:** milestone complete
 
 ## Project Reference
 
 **Core Value:** Each user's sessions, messages, and agent interactions are completely isolated from other users — no data leakage, no shared state.
 
-**Current Focus:** Phase 1 planned, ready to execute Identity Foundation Plan 1.1
+**Current Focus:** `v1.0` archived; define the next milestone
 
 ## Current Position
 
-**Phase:** 3 - User Management API  
-**Plan:** 03-04 complete (4/4 plans done)  
-**Status:** Ready to plan
+**Phase:** 4 - Resource Protection  
+**Plan:** Milestone complete  
+**Status:** Awaiting next milestone planning
 **Progress:** [██████████] 100%
 
 ## Performance Metrics
 
 **Phases:**
 
-- Completed: 0
-- In Progress: 1
-- Remaining: 4
+- Completed: 4
+- In Progress: 0
+- Remaining: 0
 
 **Plans:**
 
-- Completed: 2
+- Completed: 17
 - In Progress: 0
-- Remaining: 3
+- Remaining: 0
 
 **Requirements:**
 
-- Completed: 3/27
+- Completed: 27/27 checked, 22/27 fully satisfied in milestone audit
 - Coverage: 100%
+
+**Milestone Delivery:**
+
+- Git range: `afb96e4f9` -> `8a192022f`
+- Timeline: 2026-03-17 -> 2026-03-18
+- Change volume: 69 files changed, +9670 / -20
 
 **Execution History:**
 
-| Phase        | Plan | Duration (min) | Tasks   | Files |
-| ------------ | ---- | -------------- | ------- | ----- |
-| 02           | 01   | 14             | 3       | 2     |
-| 02           | 02   | 5              | 3       | 1     |
-| Phase 02 P03 | 7    | 2 tasks        | 1 files |
-| Phase 02 P04 | 7    | 2 tasks        | 3 files |
-| Phase 02 P05 | 3    | 1 tasks        | 1 files |
-| Phase 03 P01 | 8    | 3 tasks        | 2 files |
-| Phase 03 P02 | 5    | 2 tasks        | 2 files |
-| Phase 03 P03 | 2    | 2 tasks        | 2 files |
-| Phase 03 P04 | 2    | 2 tasks        | 2 files |
-| Phase 03 P05 | 3 | 3 tasks | 2 files |
-| Phase 04 P01 | 3 | 1 tasks | 1 files |
-| Phase 04 P02 | 2 | 1 tasks | 1 files |
-| Phase 04 P03 | 4 | 2 tasks | 2 files |
-| Phase 04 P04 | 3 | 1 tasks | 1 files |
-| Phase 04 P05 | 3 | 1 tasks | 1 files |
-| Phase 01 P02 | 10 | 4 tasks | 10 files |
+| Phase        | Plan | Duration (min) | Tasks    | Files |
+| ------------ | ---- | -------------- | -------- | ----- |
+| 02           | 01   | 14             | 3        | 2     |
+| 02           | 02   | 5              | 3        | 1     |
+| Phase 02 P03 | 7    | 2 tasks        | 1 files  |
+| Phase 02 P04 | 7    | 2 tasks        | 3 files  |
+| Phase 02 P05 | 3    | 1 tasks        | 1 files  |
+| Phase 03 P01 | 8    | 3 tasks        | 2 files  |
+| Phase 03 P02 | 5    | 2 tasks        | 2 files  |
+| Phase 03 P03 | 2    | 2 tasks        | 2 files  |
+| Phase 03 P04 | 2    | 2 tasks        | 2 files  |
+| Phase 03 P05 | 3    | 3 tasks        | 2 files  |
+| Phase 04 P01 | 3    | 1 tasks        | 1 files  |
+| Phase 04 P02 | 2    | 1 tasks        | 1 files  |
+| Phase 04 P03 | 4    | 2 tasks        | 2 files  |
+| Phase 04 P04 | 3    | 1 tasks        | 1 files  |
+| Phase 04 P05 | 3    | 1 tasks        | 1 files  |
+| Phase 01 P02 | 10   | 4 tasks        | 10 files |
 
 ## Accumulated Context
 
@@ -96,21 +102,23 @@ progress:
 | stats() sorts in JS not SQL                        | Simpler, result sets are small per user                | 2026-03-17 |
 | Mount /user before Instance middleware             | User endpoints need no directory context               | 2026-03-17 |
 | NotFoundError auto-maps to 404 in onError handler  | No manual catch needed in route handlers               | 2026-03-17 |
+| Ship `v1.0` with documented audit gaps             | Archive shipped work and track follow-up as tech debt  | 2026-03-18 |
 
 ### Active TODOs
 
-- [x] Run `/gsd-plan-phase 1` to create the Phase 1 plan using the captured context
-- [ ] Execute Plan 1.1 using `.planning/phases/01-identity-foundation/02-PLAN.md`
-- [ ] Execute Plan 1.2 using `.planning/phases/01-identity-foundation/02-PLAN.md`
-- [ ] Execute Plan 1.3 using `.planning/phases/01-identity-foundation/02-PLAN.md`
-- [ ] Execute Plan 1.4 using `.planning/phases/01-identity-foundation/02-PLAN.md`
+- [ ] Run `/gsd-new-milestone` to define the next milestone
+- [ ] Close accepted auth/usage audit gaps in the next milestone
+- [ ] Generate missing `*-VALIDATION.md` artifacts if the archived milestone needs fuller evidence
 
 ### Known Blockers
 
-None
+- `SESS-03`: message and part routes still bypass session ownership enforcement
+- `USER-05`, `USER-06`, `USAGE-04`: deleted user ids still expose `/user/:id/usage`
+- No phase `*-VALIDATION.md` files are present for `v1.0`
 
 ### Recent Changes
 
+- 2026-03-18: Archived `v1.0` milestone artifacts and recorded accepted audit gaps as tech debt
 - 2026-03-17: Completed Phase 3 Plan 04 - UserRoutes (5 endpoints) created and mounted in server.ts
 - 2026-03-17: Completed Phase 3 Plan 03 - UsageTable schema and Usage.record()/stats() implemented
 - 2026-03-17: Completed Phase 3 Plan 02 - User.update() and User.remove() implemented, session orphaning on delete
@@ -129,15 +137,13 @@ None
 
 ## Session Continuity
 
-**Next Action:** Execute Phase 4.
+**Next Action:** Start the next milestone with `/gsd-new-milestone`.
 
 **Context for Next Session:**
 
-- Phase 3 complete: all 4 plans done
-- routes/user.ts has 5 endpoints: POST /, GET /:userID, PATCH /:userID, DELETE /:userID, GET /:userID/usage
-- /user mounted in server.ts before Instance middleware (no directory context needed)
-- Requirements USER-02 through USER-06 satisfied
-- Next: Execute Phase 4
+- `v1.0` is archived and tagged after commit
+- Audit gaps remain around message ownership, deleted-user usage visibility, and missing validation artifacts
+- Next milestone should start with fresh requirements and roadmap documents
 
 ---
 
