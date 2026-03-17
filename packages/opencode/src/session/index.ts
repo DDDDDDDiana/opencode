@@ -689,16 +689,24 @@ export namespace Session {
   })
 
   export const remove = fn(SessionID.zod, async (sessionID) => {
-    const project = Instance.project
     try {
       const session = await get(sessionID)
       for (const child of await children(sessionID)) {
         await remove(child.id)
       }
       await unshare(sessionID).catch(() => {})
+      const ctx = UserContext.get()
+      const conditions = [eq(SessionTable.id, sessionID)]
+      if (ctx.state === "authenticated") {
+        conditions.push(eq(SessionTable.user_id, ctx.user_id))
+      } else {
+        conditions.push(isNull(SessionTable.user_id))
+      }
       // CASCADE delete handles messages and parts automatically
       Database.use((db) => {
-        db.delete(SessionTable).where(eq(SessionTable.id, sessionID)).run()
+        db.delete(SessionTable)
+          .where(and(...conditions))
+          .run()
         Database.effect(() =>
           Bus.publish(Event.Deleted, {
             info: session,
