@@ -25,6 +25,8 @@ import { WorkspaceContext } from "../control-plane/workspace-context"
 import { ProjectID } from "../project/schema"
 import { WorkspaceID } from "../control-plane/schema"
 import { SessionID, MessageID, PartID } from "./schema"
+import type { UserID } from "../user/schema"
+import { UserContext } from "../user/user-context"
 
 import type { Provider } from "@/provider/provider"
 import { ModelID, ProviderID } from "@/provider/schema"
@@ -68,6 +70,7 @@ export namespace Session {
       slug: row.slug,
       projectID: row.project_id,
       workspaceID: row.workspace_id ?? undefined,
+      userID: row.user_id ?? undefined,
       directory: row.directory,
       parentID: row.parent_id ?? undefined,
       title: row.title,
@@ -90,6 +93,7 @@ export namespace Session {
       id: info.id,
       project_id: info.projectID,
       workspace_id: info.workspaceID,
+      user_id: info.userID,
       parent_id: info.parentID,
       slug: info.slug,
       directory: info.directory,
@@ -125,6 +129,7 @@ export namespace Session {
       slug: z.string(),
       projectID: ProjectID.zod,
       workspaceID: WorkspaceID.zod.optional(),
+      userID: z.custom<UserID>().optional(),
       directory: z.string(),
       parentID: SessionID.zod.optional(),
       summary: z
@@ -302,6 +307,7 @@ export namespace Session {
     directory: string
     permission?: PermissionNext.Ruleset
   }) {
+    const ctx = UserContext.get()
     const result: Info = {
       id: SessionID.descending(input.id),
       slug: Slug.create(),
@@ -309,6 +315,7 @@ export namespace Session {
       projectID: Instance.project.id,
       directory: input.directory,
       workspaceID: input.workspaceID,
+      userID: ctx.state === "authenticated" ? ctx.user_id : undefined,
       parentID: input.parentID,
       title: input.title ?? createDefaultTitle(!!input.parentID),
       permission: input.permission,
