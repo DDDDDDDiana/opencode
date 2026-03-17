@@ -24,7 +24,11 @@
 2. A request with an invalid or missing API key falls back to anonymous mode without error
 3. API keys are never stored in plaintext — only hashes exist in the database
 4. UserContext is accessible via ALS anywhere in the call stack, mirroring how Instance works
-   **Plans**: TBD
+   **Plans**:
+   1. `1.1` Minimal identity persistence and API key primitives
+   2. `1.2` UserContext ALS and identity helpers
+   3. `1.3` Global auth middleware and structured logging
+   4. `1.4` Migration, verification, and regression coverage
 
 ### Phase 2: Session Ownership
 
@@ -38,7 +42,14 @@
 3. Forked sessions inherit the parent session's owner — not the requesting user
 4. Anonymous requests (no API key) see only sessions with no owner (user_id IS NULL)
 5. Existing deployments with no API key configured continue to work without migration
-   **Plans**: TBD
+   **Plans**: 4 plans
+
+Plans:
+
+- [ ] 02-01-PLAN.md — Add user_id column to SessionTable, filter create() and list()
+- [ ] 02-02-PLAN.md — Ownership checks in get(), remove(), and fork()
+- [ ] 02-03-PLAN.md — Ownership filtering in listGlobal() and children()
+- [ ] 02-04-PLAN.md — Generate Drizzle migration and full typecheck
 
 ### Phase 3: User Management API
 
@@ -71,7 +82,7 @@
 
 | Phase                  | Plans Complete | Status      | Completed |
 | ---------------------- | -------------- | ----------- | --------- |
-| 1. Identity Foundation | 0/?            | Not started | -         |
+| 1. Identity Foundation | 0/4            | Planned     | -         |
 | 2. Session Ownership   | 0/?            | Not started | -         |
 | 3. User Management API | 0/?            | Not started | -         |
 | 4. Resource Protection | 0/?            | Not started | -         |
