@@ -14,11 +14,11 @@
 
 ### Session Ownership
 
-- [ ] **SESS-01**: SessionTable has nullable `user_id` column
-- [ ] **SESS-02**: Session.list() filters by user_id (or IS NULL for anonymous)
+- [x] **SESS-01**: SessionTable has nullable `user_id` column
+- [x] **SESS-02**: Session.list() filters by user_id (or IS NULL for anonymous)
 - [ ] **SESS-03**: Session.get() enforces ownership check before returning
 - [ ] **SESS-04**: Session.create() assigns user_id from UserContext
-- [ ] **SESS-05**: Session.fork() preserves parent session's user_id
+- [x] **SESS-05**: Session.fork() preserves parent session's user_id
 - [ ] **SESS-06**: Session.remove() only allows deletion of owned sessions
 
 ### User Management
@@ -95,11 +95,11 @@
 | AUTH-02     | Phase 1 | Pending |
 | AUTH-03     | Phase 1 | Pending |
 | AUTH-04     | Phase 1 | Pending |
-| SESS-01     | Phase 2 | Pending |
-| SESS-02     | Phase 2 | Pending |
+| SESS-01     | Phase 2 | Complete |
+| SESS-02     | Phase 2 | Complete |
 | SESS-03     | Phase 2 | Pending |
 | SESS-04     | Phase 2 | Pending |
-| SESS-05     | Phase 2 | Pending |
+| SESS-05     | Phase 2 | Complete |
 | SESS-06     | Phase 2 | Pending |
 | USER-01     | Phase 3 | Pending |
 | USER-02     | Phase 3 | Pending |
