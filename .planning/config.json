@@ -1,0 +1,17 @@
+{
+  "mode": "interactive",
+  "granularity": "standard",
+  "parallelization": false,
+  "commit_docs": true,
+  "commit_style": "versions_folder",
+  "model_profile": "balanced",
+  "model_aliases": {
+    "haiku": "anthropic/claude-haiku-4-5"
+  },
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": true
+  }
+}
