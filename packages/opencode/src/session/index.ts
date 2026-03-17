@@ -639,6 +639,13 @@ export namespace Session {
       conditions.push(isNull(SessionTable.time_archived))
     }
 
+    const ctx = UserContext.get()
+    if (ctx.state === "authenticated") {
+      conditions.push(eq(SessionTable.user_id, ctx.user_id))
+    } else {
+      conditions.push(isNull(SessionTable.user_id))
+    }
+
     const limit = input?.limit ?? 100
 
     const rows = Database.use((db) => {
@@ -680,11 +687,18 @@ export namespace Session {
 
   export const children = fn(SessionID.zod, async (parentID) => {
     const project = Instance.project
+    const ctx = UserContext.get()
+    const conditions = [eq(SessionTable.project_id, project.id), eq(SessionTable.parent_id, parentID)]
+    if (ctx.state === "authenticated") {
+      conditions.push(eq(SessionTable.user_id, ctx.user_id))
+    } else {
+      conditions.push(isNull(SessionTable.user_id))
+    }
     const rows = Database.use((db) =>
       db
         .select()
         .from(SessionTable)
-        .where(and(eq(SessionTable.project_id, project.id), eq(SessionTable.parent_id, parentID)))
+        .where(and(...conditions))
         .all(),
     )
     return rows.map(fromRow)
