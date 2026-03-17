@@ -4,6 +4,7 @@ import z from "zod"
 import type { ApiKey, UserID } from "./schema"
 import { Database, NotFoundError, eq } from "../storage/db"
 import { UserTable, ApiKeyTable } from "./user.sql"
+import { SessionTable } from "../session/session.sql"
 
 const PREFIX = "sk-"
 const COST = 8
@@ -99,5 +100,45 @@ export namespace User {
     const row = Database.use((db) => db.select().from(UserTable).where(eq(UserTable.id, id)).get())
     if (!row) throw new NotFoundError({ message: `User not found: ${id}` })
     return fromRow(row)
+  }
+
+  export async function update(
+    id: UserID,
+    patch: Partial<{
+      name: string
+      quotaAgentCalls: number | null
+      quotaConcurrentSessions: number | null
+      quotaDailyTokens: number | null
+      modelAllowlist: string[] | null
+    }>,
+  ): Promise<Info> {
+    await get(id)
+    Database.use((db) =>
+      db
+        .update(UserTable)
+        .set({
+          ...(patch.name !== undefined && { name: patch.name }),
+          ...(patch.quotaAgentCalls !== undefined && { quota_agent_calls: patch.quotaAgentCalls }),
+          ...(patch.quotaConcurrentSessions !== undefined && {
+            quota_concurrent_sessions: patch.quotaConcurrentSessions,
+          }),
+          ...(patch.quotaDailyTokens !== undefined && { quota_daily_tokens: patch.quotaDailyTokens }),
+          ...(patch.modelAllowlist !== undefined && {
+            model_allowlist: patch.modelAllowlist ? JSON.stringify(patch.modelAllowlist) : null,
+          }),
+          time_updated: Date.now(),
+        })
+        .where(eq(UserTable.id, id))
+        .run(),
+    )
+    return get(id)
+  }
+
+  export async function remove(id: UserID): Promise<void> {
+    await get(id)
+    Database.use((db) => {
+      db.update(SessionTable).set({ user_id: null }).where(eq(SessionTable.user_id, id)).run()
+      db.delete(UserTable).where(eq(UserTable.id, id)).run()
+    })
   }
 }
