@@ -723,24 +723,20 @@ export namespace Session {
 
   export const remove = fn(SessionID.zod, async (sessionID) => {
     const project = Instance.project
-    try {
-      const session = await get(sessionID)
-      for (const child of await children(sessionID)) {
-        await remove(child.id)
-      }
-      await unshare(sessionID).catch(() => {})
-      // CASCADE delete handles messages and parts automatically
-      Database.use((db) => {
-        db.delete(SessionTable).where(eq(SessionTable.id, sessionID)).run()
-        Database.effect(() =>
-          Bus.publish(Event.Deleted, {
-            info: session,
-          }),
-        )
-      })
-    } catch (e) {
-      log.error(e)
+    const session = await get(sessionID)
+    for (const child of await children(sessionID)) {
+      await remove(child.id)
     }
+    await unshare(sessionID).catch(() => {})
+    // CASCADE delete handles messages and parts automatically
+    Database.use((db) => {
+      db.delete(SessionTable).where(eq(SessionTable.id, sessionID)).run()
+      Database.effect(() =>
+        Bus.publish(Event.Deleted, {
+          info: session,
+        }),
+      )
+    })
   })
 
   export const updateMessage = fn(MessageV2.Info, async (msg) => {
