@@ -9,7 +9,7 @@ import { Config } from "../config/config"
 import { Flag } from "../flag/flag"
 import { Installation } from "../installation"
 
-import { Database, NotFoundError, eq, and, or, gte, isNull, desc, like, inArray, lt } from "../storage/db"
+import { Database, NotFoundError, eq, and, or, gte, isNull, desc, like, inArray, lt, count } from "../storage/db"
 import type { SQL } from "../storage/db"
 import { SessionTable, MessageTable, PartTable } from "./session.sql"
 import { ProjectTable } from "../project/project.sql"
@@ -25,8 +25,6 @@ import { WorkspaceContext } from "../control-plane/workspace-context"
 import { ProjectID } from "../project/schema"
 import { WorkspaceID } from "../control-plane/schema"
 import { SessionID, MessageID, PartID } from "./schema"
-import type { UserID } from "../user/schema"
-import { UserContext } from "../user/user-context"
 
 import type { Provider } from "@/provider/provider"
 import { ModelID, ProviderID } from "@/provider/schema"
@@ -34,6 +32,9 @@ import { PermissionNext } from "@/permission/next"
 import { Global } from "@/global"
 import type { LanguageModelV2Usage } from "@ai-sdk/provider"
 import { iife } from "@/util/iife"
+import { QuotaError } from "@/user/errors"
+import { User } from "@/user"
+import { UserContext } from "@/user/user-context"
 
 export namespace Session {
   const log = Log.create({ service: "session" })
@@ -70,7 +71,6 @@ export namespace Session {
       slug: row.slug,
       projectID: row.project_id,
       workspaceID: row.workspace_id ?? undefined,
-      userID: row.user_id ?? undefined,
       directory: row.directory,
       parentID: row.parent_id ?? undefined,
       title: row.title,
@@ -93,7 +93,6 @@ export namespace Session {
       id: info.id,
       project_id: info.projectID,
       workspace_id: info.workspaceID,
-      user_id: info.userID,
       parent_id: info.parentID,
       slug: info.slug,
       directory: info.directory,
@@ -129,7 +128,6 @@ export namespace Session {
       slug: z.string(),
       projectID: ProjectID.zod,
       workspaceID: WorkspaceID.zod.optional(),
-      userID: z.custom<UserID>().optional(),
       directory: z.string(),
       parentID: SessionID.zod.optional(),
       summary: z
@@ -254,7 +252,6 @@ export namespace Session {
         directory: Instance.directory,
         workspaceID: original.workspaceID,
         title,
-        userID: original.userID,
       })
       const msgs = await messages({ sessionID: input.sessionID })
       const idMap = new Map<string, MessageID>()
@@ -307,9 +304,7 @@ export namespace Session {
     workspaceID?: WorkspaceID
     directory: string
     permission?: PermissionNext.Ruleset
-    userID?: UserID
   }) {
-    const ctx = UserContext.get()
     const result: Info = {
       id: SessionID.descending(input.id),
       slug: Slug.create(),
@@ -317,7 +312,6 @@ export namespace Session {
       projectID: Instance.project.id,
       directory: input.directory,
       workspaceID: input.workspaceID,
-      userID: input.userID ?? (ctx.state === "authenticated" ? ctx.user_id : undefined),
       parentID: input.parentID,
       title: input.title ?? createDefaultTitle(!!input.parentID),
       permission: input.permission,
@@ -327,6 +321,22 @@ export namespace Session {
       },
     }
     log.info("created", result)
+    const uid = UserContext.userID
+    if (uid) {
+      const user = await User.get(uid)
+      if (user.quotaConcurrentSessions !== null) {
+        const active = Database.use((db) =>
+          db
+            .select({ count: count() })
+            .from(SessionTable)
+            .where(and(eq(SessionTable.user_id, uid), isNull(SessionTable.time_archived)))
+            .get(),
+        )
+        const current = active?.count ?? 0
+        if (current >= user.quotaConcurrentSessions)
+          throw new QuotaError({ kind: "concurrent_sessions", limit: user.quotaConcurrentSessions, current })
+      }
+    }
     Database.use((db) => {
       db.insert(SessionTable).values(toRow(result)).run()
       Database.effect(() =>
@@ -354,20 +364,7 @@ export namespace Session {
   }
 
   export const get = fn(SessionID.zod, async (id) => {
-    const ctx = UserContext.get()
-    const conditions = [eq(SessionTable.id, id)]
-    if (ctx.state === "authenticated") {
-      conditions.push(eq(SessionTable.user_id, ctx.user_id))
-    } else {
-      conditions.push(isNull(SessionTable.user_id))
-    }
-    const row = Database.use((db) =>
-      db
-        .select()
-        .from(SessionTable)
-        .where(and(...conditions))
-        .get(),
-    )
+    const row = Database.use((db) => db.select().from(SessionTable).where(eq(SessionTable.id, id)).get())
     if (!row) throw new NotFoundError({ message: `Session not found: ${id}` })
     return fromRow(row)
   })
@@ -570,13 +567,6 @@ export namespace Session {
     const project = Instance.project
     const conditions = [eq(SessionTable.project_id, project.id)]
 
-    const ctx = UserContext.get()
-    if (ctx.state === "authenticated") {
-      conditions.push(eq(SessionTable.user_id, ctx.user_id))
-    } else {
-      conditions.push(isNull(SessionTable.user_id))
-    }
-
     if (WorkspaceContext.workspaceID) {
       conditions.push(eq(SessionTable.workspace_id, WorkspaceContext.workspaceID))
     }
@@ -639,13 +629,6 @@ export namespace Session {
       conditions.push(isNull(SessionTable.time_archived))
     }
 
-    const ctx = UserContext.get()
-    if (ctx.state === "authenticated") {
-      conditions.push(eq(SessionTable.user_id, ctx.user_id))
-    } else {
-      conditions.push(isNull(SessionTable.user_id))
-    }
-
     const limit = input?.limit ?? 100
 
     const rows = Database.use((db) => {
@@ -687,47 +670,36 @@ export namespace Session {
 
   export const children = fn(SessionID.zod, async (parentID) => {
     const project = Instance.project
-    const ctx = UserContext.get()
-    const conditions = [eq(SessionTable.project_id, project.id), eq(SessionTable.parent_id, parentID)]
-    if (ctx.state === "authenticated") {
-      conditions.push(eq(SessionTable.user_id, ctx.user_id))
-    } else {
-      conditions.push(isNull(SessionTable.user_id))
-    }
     const rows = Database.use((db) =>
       db
         .select()
         .from(SessionTable)
-        .where(and(...conditions))
+        .where(and(eq(SessionTable.project_id, project.id), eq(SessionTable.parent_id, parentID)))
         .all(),
     )
     return rows.map(fromRow)
   })
 
   export const remove = fn(SessionID.zod, async (sessionID) => {
-    const session = await get(sessionID)
-    for (const child of await children(sessionID)) {
-      await remove(child.id)
+    const project = Instance.project
+    try {
+      const session = await get(sessionID)
+      for (const child of await children(sessionID)) {
+        await remove(child.id)
+      }
+      await unshare(sessionID).catch(() => {})
+      // CASCADE delete handles messages and parts automatically
+      Database.use((db) => {
+        db.delete(SessionTable).where(eq(SessionTable.id, sessionID)).run()
+        Database.effect(() =>
+          Bus.publish(Event.Deleted, {
+            info: session,
+          }),
+        )
+      })
+    } catch (e) {
+      log.error(e)
     }
-    await unshare(sessionID).catch(() => {})
-    const ctx = UserContext.get()
-    const conditions = [eq(SessionTable.id, sessionID)]
-    if (ctx.state === "authenticated") {
-      conditions.push(eq(SessionTable.user_id, ctx.user_id))
-    } else {
-      conditions.push(isNull(SessionTable.user_id))
-    }
-    // CASCADE delete handles messages and parts automatically
-    Database.use((db) => {
-      db.delete(SessionTable)
-        .where(and(...conditions))
-        .run()
-      Database.effect(() =>
-        Bus.publish(Event.Deleted, {
-          info: session,
-        }),
-      )
-    })
   })
 
   export const updateMessage = fn(MessageV2.Info, async (msg) => {

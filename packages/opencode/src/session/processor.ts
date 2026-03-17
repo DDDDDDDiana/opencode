@@ -18,6 +18,8 @@ import { PartID } from "./schema"
 import type { SessionID, MessageID } from "./schema"
 import { Usage } from "@/user/usage"
 import { UserContext } from "@/user/user-context"
+import { QuotaError } from "@/user/errors"
+import { User } from "@/user"
 
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
@@ -53,6 +55,17 @@ export namespace SessionProcessor {
           try {
             let currentText: MessageV2.TextPart | undefined
             let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
+            const uid = UserContext.userID
+            if (uid) {
+              const user = await User.get(uid)
+              if (user.quotaDailyTokens !== null) {
+                const today = new Date().toISOString().slice(0, 10)
+                const stats = Usage.stats(uid)
+                const used = stats.find((s) => s.date === today)?.tokens ?? 0
+                if (used >= user.quotaDailyTokens)
+                  throw new QuotaError({ kind: "daily_tokens", limit: user.quotaDailyTokens, current: used })
+              }
+            }
             const stream = await LLM.stream(streamInput)
 
             for await (const value of stream.fullStream) {
