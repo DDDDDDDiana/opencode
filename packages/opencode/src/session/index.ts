@@ -371,7 +371,20 @@ export namespace Session {
   }
 
   export const get = fn(SessionID.zod, async (id) => {
-    const row = Database.use((db) => db.select().from(SessionTable).where(eq(SessionTable.id, id)).get())
+    const ctx = UserContext.get()
+    const conditions = [eq(SessionTable.id, id)]
+    if (ctx.state === "authenticated") {
+      conditions.push(eq(SessionTable.user_id, ctx.user_id))
+    } else {
+      conditions.push(isNull(SessionTable.user_id))
+    }
+    const row = Database.use((db) =>
+      db
+        .select()
+        .from(SessionTable)
+        .where(and(...conditions))
+        .get(),
+    )
     if (!row) throw new NotFoundError({ message: `Session not found: ${id}` })
     return fromRow(row)
   })
@@ -574,6 +587,13 @@ export namespace Session {
     const project = Instance.project
     const conditions = [eq(SessionTable.project_id, project.id)]
 
+    const ctx = UserContext.get()
+    if (ctx.state === "authenticated") {
+      conditions.push(eq(SessionTable.user_id, ctx.user_id))
+    } else {
+      conditions.push(isNull(SessionTable.user_id))
+    }
+
     if (WorkspaceContext.workspaceID) {
       conditions.push(eq(SessionTable.workspace_id, WorkspaceContext.workspaceID))
     }
@@ -616,6 +636,13 @@ export namespace Session {
     archived?: boolean
   }) {
     const conditions: SQL[] = []
+
+    const ctx = UserContext.get()
+    if (ctx.state === "authenticated") {
+      conditions.push(eq(SessionTable.user_id, ctx.user_id))
+    } else {
+      conditions.push(isNull(SessionTable.user_id))
+    }
 
     if (input?.directory) {
       conditions.push(eq(SessionTable.directory, input.directory))
@@ -677,11 +704,18 @@ export namespace Session {
 
   export const children = fn(SessionID.zod, async (parentID) => {
     const project = Instance.project
+    const ctx = UserContext.get()
+    const conditions = [eq(SessionTable.project_id, project.id), eq(SessionTable.parent_id, parentID)]
+    if (ctx.state === "authenticated") {
+      conditions.push(eq(SessionTable.user_id, ctx.user_id))
+    } else {
+      conditions.push(isNull(SessionTable.user_id))
+    }
     const rows = Database.use((db) =>
       db
         .select()
         .from(SessionTable)
-        .where(and(eq(SessionTable.project_id, project.id), eq(SessionTable.parent_id, parentID)))
+        .where(and(...conditions))
         .all(),
     )
     return rows.map(fromRow)
