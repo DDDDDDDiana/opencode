@@ -555,6 +555,13 @@ export namespace Session {
     const project = Instance.project
     const conditions = [eq(SessionTable.project_id, project.id)]
 
+    const ctx = UserContext.get()
+    if (ctx.state === "authenticated") {
+      conditions.push(eq(SessionTable.user_id, ctx.user_id))
+    } else {
+      conditions.push(isNull(SessionTable.user_id))
+    }
+
     if (WorkspaceContext.workspaceID) {
       conditions.push(eq(SessionTable.workspace_id, WorkspaceContext.workspaceID))
     }
