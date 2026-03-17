@@ -84,7 +84,15 @@ Plans:
 3. A user who has hit their daily token cap cannot start new LLM calls until the cap resets
 4. A user attempting to use a model not on their allowlist receives an error listing the permitted models
 5. Token consumption is recorded per session after each LLM call completes, and is visible via the usage API
-   **Plans**: TBD
+   **Plans**: 5 plans
+
+Plans:
+
+- [ ] 04-01-PLAN.md — Record token usage in processor.ts finish-step (USAGE-02, USAGE-03)
+- [ ] 04-02-PLAN.md — Define QuotaError and ModelAccessError contracts (QUOTA-04, MODEL-03)
+- [ ] 04-03-PLAN.md — Concurrent session + daily token quota enforcement (QUOTA-02, QUOTA-03)
+- [ ] 04-04-PLAN.md — Agent call quota in prompt loop (QUOTA-01)
+- [ ] 04-05-PLAN.md — Model allowlist check in Provider.getModel() (MODEL-01, MODEL-02, MODEL-03)
 
 ## Progress
 
@@ -92,8 +100,8 @@ Plans:
 | ---------------------- | -------------- | ----------- | ---------- |
 | 1. Identity Foundation | 0/4            | Planned     | -          |
 | 2. Session Ownership   | 5/5            | Complete    | 2026-03-17 |
-| 3. User Management API | 5/5 | Complete   | 2026-03-17 |
-| 4. Resource Protection | 0/?            | Not started | -          |
+| 3. User Management API | 5/5            | Complete    | 2026-03-17 |
+| 4. Resource Protection | 0/5            | Not started | -          |
 
 ---
 
