@@ -16,6 +16,8 @@ import { PermissionNext } from "@/permission/next"
 import { Question } from "@/question"
 import { PartID } from "./schema"
 import type { SessionID, MessageID } from "./schema"
+import { Usage } from "@/user/usage"
+import { UserContext } from "@/user/user-context"
 
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
@@ -251,6 +253,10 @@ export namespace SessionProcessor {
                   input.assistantMessage.finish = value.finishReason
                   input.assistantMessage.cost += usage.cost
                   input.assistantMessage.tokens = usage.tokens
+                  const uid = UserContext.userID
+                  if (uid && usage.tokens.total) {
+                    Usage.record({ userID: uid, sessionID: input.sessionID, tokens: usage.tokens.total })
+                  }
                   await Session.updatePart({
                     id: PartID.ascending(),
                     reason: value.finishReason,
