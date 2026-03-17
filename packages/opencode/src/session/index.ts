@@ -256,6 +256,7 @@ export namespace Session {
         directory: Instance.directory,
         workspaceID: original.workspaceID,
         title,
+        userID: original.userID,
       })
       const msgs = await messages({ sessionID: input.sessionID })
       const idMap = new Map<string, MessageID>()
@@ -308,6 +309,7 @@ export namespace Session {
     workspaceID?: WorkspaceID
     directory: string
     permission?: PermissionNext.Ruleset
+    userID?: UserID
   }) {
     const result: Info = {
       id: SessionID.descending(input.id),
@@ -319,6 +321,7 @@ export namespace Session {
       parentID: input.parentID,
       title: input.title ?? createDefaultTitle(!!input.parentID),
       permission: input.permission,
+      userID: input.userID ?? UserContext.userID ?? undefined,
       time: {
         created: Date.now(),
         updated: Date.now(),
