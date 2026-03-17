@@ -1,9 +1,8 @@
 {
   "mode": "interactive",
   "granularity": "standard",
-  "parallelization": false,
+  "parallelization": true,
   "commit_docs": true,
-  "commit_style": "versions_folder",
   "model_profile": "balanced",
   "model_aliases": {
     "haiku": "anthropic/claude-haiku-4-5"
