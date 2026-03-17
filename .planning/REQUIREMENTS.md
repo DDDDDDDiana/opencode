@@ -60,24 +60,24 @@ Deferred from `v1.1`. Tracked, but not included in this roadmap.
 
 Which phases cover which requirements. Updated during roadmap creation.
 
-| Requirement | Phase | Status  |
-| ----------- | ----- | ------- |
-| SESS-07     | TBA   | Pending |
-| SESS-08     | TBA   | Pending |
-| SESS-09     | TBA   | Pending |
-| BNDR-01     | TBA   | Pending |
-| BNDR-02     | TBA   | Pending |
-| USAGE-05    | TBA   | Pending |
-| USAGE-06    | TBA   | Pending |
-| EVID-01     | TBA   | Pending |
+| Requirement | Phase   | Status  |
+| ----------- | ------- | ------- |
+| SESS-07     | Phase 5 | Pending |
+| SESS-08     | Phase 5 | Pending |
+| SESS-09     | Phase 5 | Pending |
+| BNDR-01     | Phase 6 | Pending |
+| BNDR-02     | Phase 6 | Pending |
+| USAGE-05    | Phase 6 | Pending |
+| USAGE-06    | Phase 6 | Pending |
+| EVID-01     | Phase 7 | Pending |
 
 **Coverage:**
 
 - v1 requirements: 8 total
-- Mapped to phases: 0
-- Unmapped: 8 ⚠
+- Mapped to phases: 8
+- Unmapped: 0 ✓
 
 ---
 
 _Requirements defined: 2026-03-18_
-_Last updated: 2026-03-18 after initial `v1.1` definition_
+_Last updated: 2026-03-18 after `v1.1` roadmap creation_

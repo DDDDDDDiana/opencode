@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: isolation-boundary-tightening
-current_phase: 0
-current_plan: requirements definition
-status: defining_requirements
+current_phase: 5
+current_plan: null
+status: roadmap_created
 last_updated: "2026-03-18T00:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,21 +17,21 @@ progress:
 # Project State: OpenCode Multi-User Isolation
 
 **Last Updated:** 2026-03-18  
-**Current Phase:** 0
-**Current Plan:** requirements definition
+**Current Phase:** 5
+**Current Plan:** -
 
 ## Project Reference
 
 **Core Value:** Each user's sessions, messages, and agent interactions are completely isolated from other users — no data leakage, no shared state.
 
-**Current Focus:** `v1.1` is being defined around isolation boundary tightening
+**Current Focus:** `v1.1` is ready for planning around ownership closure, boundary cleanup, preserved accounting, and restored validation evidence
 
 ## Current Position
 
-**Phase:** Not started (defining requirements)  
+**Phase:** Phase 5 - Session-Derived Ownership Closure  
 **Plan:** -  
-**Status:** Defining requirements
-**Last activity:** 2026-03-18 - Milestone `v1.1` started
+**Status:** Roadmap created; awaiting phase planning
+**Last activity:** 2026-03-18 - Created `v1.1` roadmap with phases 5-7
 
 ## Accumulated Context
 
@@ -57,21 +57,27 @@ progress:
 | Mount /user before Instance middleware             | User endpoints need no directory context               | 2026-03-17 |
 | NotFoundError auto-maps to 404 in onError handler  | No manual catch needed in route handlers               | 2026-03-17 |
 | Ship `v1.0` with documented audit gaps             | Archive shipped work and track follow-up as tech debt  | 2026-03-18 |
+| Keep registration outside this service in `v1.1`   | Preserve backend focus on isolation and accounting     | 2026-03-18 |
 
 ### Active TODOs
 
-- [ ] Run `/gsd-new-milestone` to define the next milestone
-- [ ] Close accepted auth/usage audit gaps in the next milestone
-- [ ] Generate missing `*-VALIDATION.md` artifacts if the archived milestone needs fuller evidence
+- [ ] Run `/gsd-plan-phase 5` to plan session-derived ownership closure
+- [ ] Preserve per-user usage/quota behavior while removing registration responsibility from this service
+- [ ] Generate `v1.1` validation artifacts that prove ownership enforcement and retained accounting
 
 ### Known Blockers
 
 - `SESS-03`: message and part routes still bypass session ownership enforcement
-- `USER-05`, `USER-06`, `USAGE-04`: deleted user ids still expose `/user/:id/usage`
 - No phase `*-VALIDATION.md` files are present for `v1.0`
+
+### Deferred Context
+
+- Deleted-user usage fail-closed remains out of scope for `v1.1`; tracked in deferred requirements and not part of phases 5-7
+- Upstream sync contract, disable/revoke flows, telemetry, exports, and signup/onboarding UX remain explicitly out of scope for this roadmap
 
 ### Recent Changes
 
+- 2026-03-18: Created `v1.1` roadmap with 3 phases starting at Phase 5 and mapped all 8 milestone requirements
 - 2026-03-18: Archived `v1.0` milestone artifacts and recorded accepted audit gaps as tech debt
 - 2026-03-17: Completed Phase 3 Plan 04 - UserRoutes (5 endpoints) created and mounted in server.ts
 - 2026-03-17: Completed Phase 3 Plan 03 - UsageTable schema and Usage.record()/stats() implemented
@@ -91,13 +97,14 @@ progress:
 
 ## Session Continuity
 
-**Next Action:** Start the next milestone with `/gsd-new-milestone`.
+**Next Action:** Run `/gsd-plan-phase 5`.
 
 **Context for Next Session:**
 
 - `v1.0` is archived and tagged after commit
-- Audit gaps remain around message ownership, deleted-user usage visibility, and missing validation artifacts
-- Next milestone should start with fresh requirements and roadmap documents
+- `v1.1` roadmap is in place with phases 5-7
+- In-scope work is limited to ownership closure, preserved usage accounting, externalized registration responsibility, and validation evidence restoration
+- Deleted-user fail-closed and other lifecycle hardening work remain deferred beyond this roadmap
 
 ---
 
