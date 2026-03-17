@@ -62,7 +62,15 @@ Plans:
 2. Admin can update a user's quota settings via PATCH and changes take effect on the next request
 3. Admin can delete a user — their sessions are orphaned (user_id set to NULL), not deleted
 4. Admin can retrieve per-user token consumption stats aggregated by date
-   **Plans**: TBD
+
+**Plans**: 4 plans
+
+Plans:
+
+- [ ] 03-01-PLAN.md — Extend UserTable schema + User.create() and User.get()
+- [ ] 03-02-PLAN.md — User.update() quota patching + User.remove() with session orphaning
+- [ ] 03-03-PLAN.md — UsageTable schema + Usage.record() and Usage.stats()
+- [ ] 03-04-PLAN.md — HTTP routes (POST/GET/PATCH/DELETE /user, GET /user/:id/usage)
 
 ### Phase 4: Resource Protection
 
@@ -83,7 +91,7 @@ Plans:
 | Phase                  | Plans Complete | Status      | Completed  |
 | ---------------------- | -------------- | ----------- | ---------- |
 | 1. Identity Foundation | 0/4            | Planned     | -          |
-| 2. Session Ownership   | 5/5 | Complete   | 2026-03-17 |
+| 2. Session Ownership   | 5/5            | Complete    | 2026-03-17 |
 | 3. User Management API | 0/?            | Not started | -          |
 | 4. Resource Protection | 0/?            | Not started | -          |
 
