@@ -92,7 +92,7 @@ Plans:
 | ---------------------- | -------------- | ----------- | ---------- |
 | 1. Identity Foundation | 0/4            | Planned     | -          |
 | 2. Session Ownership   | 5/5            | Complete    | 2026-03-17 |
-| 3. User Management API | 4/4 | Complete   | 2026-03-17 |
+| 3. User Management API | 5/5 | Complete   | 2026-03-17 |
 | 4. Resource Protection | 0/?            | Not started | -          |
 
 ---
