@@ -45,10 +45,10 @@
 
 ### Usage Tracking
 
-- [ ] **USAGE-01**: UsageTable records user_id, session_id, tokens, date
+- [x] **USAGE-01**: UsageTable records user_id, session_id, tokens, date
 - [ ] **USAGE-02**: Token counts extracted from LLM response metadata
 - [ ] **USAGE-03**: Usage written after each LLM.stream() completes
-- [ ] **USAGE-04**: GET /user/:id/usage aggregates by date
+- [x] **USAGE-04**: GET /user/:id/usage aggregates by date
 
 ## v2 Requirements
 
@@ -114,10 +114,10 @@
 | MODEL-01    | Phase 4 | Pending  |
 | MODEL-02    | Phase 4 | Pending  |
 | MODEL-03    | Phase 4 | Pending  |
-| USAGE-01    | Phase 4 | Pending  |
+| USAGE-01    | Phase 4 | Complete |
 | USAGE-02    | Phase 4 | Pending  |
 | USAGE-03    | Phase 4 | Pending  |
-| USAGE-04    | Phase 4 | Pending  |
+| USAGE-04    | Phase 4 | Complete |
 
 **Coverage:**
 

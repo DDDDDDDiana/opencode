@@ -5,13 +5,13 @@ milestone_name: milestone
 current_phase: 3
 current_plan: Not started
 status: executing
-last_updated: "2026-03-17T12:31:20.129Z"
+last_updated: "2026-03-17T12:35:57.221Z"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 10
-  completed_plans: 7
-  percent: 70
+  completed_plans: 8
+  percent: 80
 ---
 
 # Project State: OpenCode Multi-User Isolation
@@ -29,9 +29,9 @@ progress:
 ## Current Position
 
 **Phase:** 3 - User Management API  
-**Plan:** 03-02 complete (2/4 plans done)  
+**Plan:** 03-03 complete (3/4 plans done)  
 **Status:** In progress
-**Progress:** [███████░░░] 70%
+**Progress:** [████████░░] 80%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ progress:
 | Phase 02 P05 | 3    | 1 tasks        | 1 files |
 | Phase 03 P01 | 8    | 3 tasks        | 2 files |
 | Phase 03 P02 | 5    | 2 tasks        | 2 files |
+| Phase 03 P03 | 2    | 2 tasks        | 2 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,8 @@ progress:
 | JSON.stringify/parse for model_allowlist           | SQLite has no array type, JSON string is idiomatic     | 2026-03-17 |
 | User.update() conditional spread for partial patch | Only set provided fields; null is valid to clear quota | 2026-03-17 |
 | User.remove() orphans sessions before delete       | Avoids FK constraint issues, preserves session history | 2026-03-17 |
+| Usage.record() is synchronous (no async)           | Database.use() is sync, no await needed                | 2026-03-17 |
+| stats() sorts in JS not SQL                        | Simpler, result sets are small per user                | 2026-03-17 |
 
 ### Active TODOs
 
@@ -98,6 +101,7 @@ None
 
 ### Recent Changes
 
+- 2026-03-17: Completed Phase 3 Plan 03 - UsageTable schema and Usage.record()/stats() implemented
 - 2026-03-17: Completed Phase 3 Plan 02 - User.update() and User.remove() implemented, session orphaning on delete
 - 2026-03-17: Completed Phase 3 Plan 01 - UserTable extended, User.create() and User.get() implemented
 - 2026-03-17: Completed Phase 2 Plan 05 - remove() now propagates NotFoundError, SESS-06 satisfied
@@ -114,14 +118,15 @@ None
 
 ## Session Continuity
 
-**Next Action:** Execute Phase 3 Plan 03.
+**Next Action:** Execute Phase 3 Plan 04.
 
 **Context for Next Session:**
 
-- Phase 3 Plan 02 complete: User.update() patches quotas/allowlist, User.remove() orphans sessions then deletes user
-- session.sql.ts now has user_id column synced with migration 20260317110427_add_session_user_id
-- Requirements USER-04 and USER-05 satisfied
-- Next: Execute Phase 3 Plan 03
+- Phase 3 Plan 03 complete: UsageTable schema and Usage.record()/stats() implemented
+- usage.sql.ts has user_id, session_id, tokens, date columns with indexes
+- usage.ts has Usage.record() (sync insert) and Usage.stats() (aggregate by date)
+- Requirements USAGE-01 and USAGE-04 satisfied
+- Next: Execute Phase 3 Plan 04
 
 ---
 
