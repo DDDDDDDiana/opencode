@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 3
-current_plan: Not started
-status: planning
-last_updated: "2026-03-17T11:33:29.883Z"
+current_plan: "02"
+status: in_progress
+last_updated: "2026-03-17T12:24:53.271Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 6
-  completed_plans: 5
-  percent: 83
+  total_plans: 10
+  completed_plans: 6
+  percent: 60
 ---
 
 # Project State: OpenCode Multi-User Isolation
@@ -28,10 +28,10 @@ progress:
 
 ## Current Position
 
-**Phase:** 2 - Session Ownership  
-**Plan:** Phase 2 complete (all 5 plans done)  
-**Status:** Ready to plan
-**Progress:** [████████░░] 83%
+**Phase:** 3 - User Management API  
+**Plan:** 03-01 complete (1/4 plans done)  
+**Status:** In progress
+**Progress:** [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ progress:
 | Phase 02 P03 | 7    | 2 tasks        | 1 files |
 | Phase 02 P04 | 7    | 2 tasks        | 3 files |
 | Phase 02 P05 | 3    | 1 tasks        | 1 files |
+| Phase 03 P01 | 8    | 3 tasks        | 2 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ progress:
 | get() returns 404 for unauthorized access         | Indistinguishable from not found, prevents enumeration | 2026-03-17 |
 | remove() uses SQL WHERE for ownership             | Prevents cross-user deletion at query level            | 2026-03-17 |
 | fork() inherits parent user_id via param          | Guarantees ownership inheritance regardless of caller  | 2026-03-17 |
+| z.custom<UserID>() for branded type in zod schema | Avoids unsafe cast, preserves type safety              | 2026-03-17 |
+| JSON.stringify/parse for model_allowlist          | SQLite has no array type, JSON string is idiomatic     | 2026-03-17 |
 
 ### Active TODOs
 
@@ -92,6 +95,7 @@ None
 
 ### Recent Changes
 
+- 2026-03-17: Completed Phase 3 Plan 01 - UserTable extended, User.create() and User.get() implemented
 - 2026-03-17: Completed Phase 2 Plan 05 - remove() now propagates NotFoundError, SESS-06 satisfied
 - 2026-03-17: Completed Phase 2 Plan 04 - Drizzle migration generated, zero type errors in session code
 - 2026-03-17: Completed Phase 2 Plan 02 - Session get/remove/fork ownership enforcement
@@ -106,18 +110,16 @@ None
 
 ## Session Continuity
 
-**Next Action:** Phase 2 complete. Ready to execute Phase 1 or Phase 3 plans.
+**Next Action:** Execute Phase 3 Plan 02.
 
 **Context for Next Session:**
 
-- Phase 2 complete: All session ownership enforcement implemented
-- Session.create() tags sessions with owner (authenticated) or NULL (anonymous)
-- Session.list() filters by user_id based on authentication state
-- Session.get() returns 404 for unauthorized access (indistinguishable from not found)
-- Session.remove() prevents cross-user deletion via SQL WHERE clause
-- Session.fork() inherits parent user_id regardless of requester identity
-- Requirements SESS-01, SESS-02, SESS-03, SESS-04, SESS-05 satisfied
-- Next: Execute Phase 1 (Identity Foundation) or Phase 3 (Message Ownership)
+- Phase 3 Plan 01 complete: UserTable has name + quota columns, User.create() and User.get() implemented
+- User.create() generates API key, stores bcrypt hash, returns plaintext key once
+- User.get() returns Info without exposing hash, throws NotFoundError if missing
+- model_allowlist stored as JSON string, parsed on read
+- Requirement USER-01 satisfied
+- Next: Execute Phase 3 Plan 02
 
 ---
 
