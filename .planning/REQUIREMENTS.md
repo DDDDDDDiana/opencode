@@ -12,10 +12,10 @@
 
 ### Authentication Enforcement
 
-- [ ] **AUTH-01**: Middleware rejects requests without valid API key with 401 Unauthorized
-- [ ] **AUTH-02**: 401 responses include WWW-Authenticate header per HTTP spec
-- [ ] **AUTH-03**: Admin auth (OPENCODE_SERVER_PASSWORD/USERNAME) preserved separate from user API key auth
-- [ ] **AUTH-04**: Both authentication systems coexist without conflict
+- [x] **AUTH-01**: Middleware rejects requests without valid API key with 401 Unauthorized
+- [x] **AUTH-02**: 401 responses include WWW-Authenticate header per HTTP spec
+- [x] **AUTH-03**: Admin auth (OPENCODE_SERVER_PASSWORD/USERNAME) preserved separate from user API key auth
+- [x] **AUTH-04**: Both authentication systems coexist without conflict
 
 ### Code Cleanup
 
@@ -58,10 +58,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ----------- | ----- | ------- |
 | MIGR-01     | 8     | Pending |
 | MIGR-02     | 8     | Pending |
-| AUTH-01     | 9     | Pending |
-| AUTH-02     | 9     | Pending |
-| AUTH-03     | 9     | Pending |
-| AUTH-04     | 9     | Pending |
+| AUTH-01     | 9     | Complete |
+| AUTH-02     | 9     | Complete |
+| AUTH-03     | 9     | Complete |
+| AUTH-04     | 9     | Complete |
 | CLEAN-01    | 10    | Pending |
 | CLEAN-02    | 10    | Pending |
 | CLEAN-03    | 10    | Pending |

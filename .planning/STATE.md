@@ -2,23 +2,24 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: 禁止匿名模式
-current_phase: 8
-current_plan: Not started
-status: roadmap complete
-last_updated: "2026-03-18T06:10:43.473Z"
-last_activity: 2026-03-18 - Roadmap created for v1.2
+current_phase: 9 - Authentication Enforcement
+current_plan: 01
+status: in_progress
+last_updated: "2026-03-18T06:38:00.000Z"
+last_activity: 2026-03-18 — Completed Phase 09 Plan 01
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State: OpenCode Multi-User Isolation v1.2
 
 **Last Updated:** 2026-03-18  
-**Current Phase:** 8 - Data Migration
-**Current Plan:** Not started
+**Current Phase:** 9 - Authentication Enforcement
+**Current Plan:** 01
 
 ## Project Reference
 
@@ -28,11 +29,11 @@ progress:
 
 ## Current Position
 
-**Phase:** 8 - Data Migration  
-**Plan:** Not started  
-**Status:** Roadmap complete, ready for execution
-**Progress:** `[░░░░░░░░░░] 0%` (0/3 phases complete)
-**Last activity:** 2026-03-18 — Roadmap created for v1.2
+**Phase:** 9 - Authentication Enforcement  
+**Plan:** 01  
+**Status:** Phase 09 Plan 01 complete
+**Progress:** [██████████] 100%
+**Last activity:** 2026-03-18 — Completed Phase 09 Plan 01 - User authentication middleware
 
 ## Accumulated Context
 
@@ -66,13 +67,14 @@ progress:
 | Document registration as external in README        | Establishes clear service boundary for user lifecycle     | 2026-03-18 |
 | Remove anonymous fallback in v1.2                  | Simplifies security model, enforces isolation             | 2026-03-18 |
 | Migration before code deployment                   | Prevents orphaned data with NULL user_id                  | 2026-03-18 |
-| Admin auth separate from user auth                 | OPENCODE_SERVER_PASSWORD independent of API keys          | 2026-03-18 |
+| Exempt routes use startsWith for subpath matching  | Supports /doc/openapi.json and similar subpaths           | 2026-03-18 |
+| Auth middleware positioned after CORS              | Ensures CORS headers set before auth rejection            | 2026-03-18 |
 
 ### Active TODOs
 
-- [ ] Create migration script for NULL user_id sessions (Phase 8)
-- [ ] Alter SessionTable.user_id to NOT NULL (Phase 8)
-- [ ] Add auth middleware after CORS in server.ts (Phase 9)
+- [x] Create migration script for NULL user_id sessions (Phase 8)
+- [x] Alter SessionTable.user_id to NOT NULL (Phase 8)
+- [x] Add auth middleware after CORS in server.ts (Phase 9)
 - [ ] Remove Anonymous from Identity union (Phase 10)
 - [ ] Delete anonymous tests and fallback logic (Phase 10)
 
@@ -89,6 +91,8 @@ None currently.
 
 ### Recent Changes
 
+- 2026-03-18: Completed Phase 09 Plan 01 - User authentication middleware enforces API key requirement
+- 2026-03-18: Completed Phase 08 Plan 01 - Data migration for NULL user_id sessions
 - 2026-03-18: Created v1.2 roadmap with 3 phases (8-10) covering 9 requirements
 - 2026-03-18: v1.1 shipped (phases 5-7)
 - 2026-03-18: Completed Phase 6 Plan 02 - Usage accounting preservation tests
@@ -115,16 +119,15 @@ None currently.
 
 ## Session Continuity
 
-**Next Action:** Execute `/gsd-plan-phase 8` to create execution plan for Data Migration phase.
+**Next Action:** Execute Phase 10 to remove anonymous fallback logic and complete v1.2 milestone.
 
 **Context for Next Session:**
 
-- v1.2 roadmap complete with 3 phases (8-10)
-- All authentication infrastructure exists from v1.0/v1.1
-- This milestone is surgical: ~20 lines of code across 3 files
-- Key risk: orphaned sessions with NULL user_id (addressed in Phase 8)
-- Research confidence: HIGH (all patterns standard, no additional research needed)
-- Phase 8 must complete before Phase 9 to prevent data loss
+- Phase 09 Plan 01 complete - authentication middleware enforcing API key requirement
+- Phase 08 complete - all sessions have valid user_id, schema constraint enforced
+- Final phase (10) removes anonymous fallback from Identity union and tests
+- v1.2 milestone nearly complete - only cleanup phase remains
+- All core security requirements (AUTH-01 through AUTH-04) satisfied
 
 ---
 

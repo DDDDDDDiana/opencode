@@ -29,7 +29,7 @@
 ### 🚧 v1.2 禁止匿名模式 (Phases 8-10) — IN PROGRESS
 
 - [ ] **Phase 8: Data Migration** - Prepare database for mandatory authentication
-- [ ] **Phase 9: Authentication Enforcement** - Reject unauthenticated requests
+- [x] **Phase 9: Authentication Enforcement** - Reject unauthenticated requests (completed 2026-03-18)
 - [ ] **Phase 10: Code Cleanup** - Remove anonymous code paths
 
 ## Phase Details
@@ -85,7 +85,7 @@ Plans:
 | Phase                         | Plans Complete | Status      | Completed |
 | ----------------------------- | -------------- | ----------- | --------- |
 | 8. Data Migration             | 0/0            | Not started | -         |
-| 9. Authentication Enforcement | 0/0            | Not started | -         |
+| 9. Authentication Enforcement | 1/1 | Complete   | 2026-03-18 |
 | 10. Code Cleanup              | 0/0            | Not started | -         |
 
 ---
