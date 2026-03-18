@@ -30,7 +30,7 @@
 
 - [ ] **Phase 8: Data Migration** - Prepare database for mandatory authentication
 - [x] **Phase 9: Authentication Enforcement** - Reject unauthenticated requests (completed 2026-03-18)
-- [ ] **Phase 10: Code Cleanup** - Remove anonymous code paths
+- [x] **Phase 10: Code Cleanup** - Remove anonymous code paths (completed 2026-03-18)
 
 ## Phase Details
 
@@ -91,7 +91,7 @@ Plans:
 | ----------------------------- | -------------- | ----------- | ---------- |
 | 8. Data Migration             | 0/0            | Not started | -          |
 | 9. Authentication Enforcement | 1/1            | Complete    | 2026-03-18 |
-| 10. Code Cleanup              | 0/0            | Not started | -          |
+| 10. Code Cleanup              | 1/1 | Complete   | 2026-03-18 |
 
 ---
 

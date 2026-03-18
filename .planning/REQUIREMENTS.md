@@ -19,9 +19,9 @@
 
 ### Code Cleanup
 
-- [ ] **CLEAN-01**: Anonymous type removed from Identity union
-- [ ] **CLEAN-02**: Anonymous fallback logic removed from UserContext
-- [ ] **CLEAN-03**: Anonymous-related tests deleted
+- [x] **CLEAN-01**: Anonymous type removed from Identity union
+- [x] **CLEAN-02**: Anonymous fallback logic removed from UserContext
+- [x] **CLEAN-03**: Anonymous-related tests deleted
 
 ## v2 Requirements
 
@@ -62,9 +62,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-02     | 9     | Complete |
 | AUTH-03     | 9     | Complete |
 | AUTH-04     | 9     | Complete |
-| CLEAN-01    | 10    | Pending |
-| CLEAN-02    | 10    | Pending |
-| CLEAN-03    | 10    | Pending |
+| CLEAN-01    | 10    | Complete |
+| CLEAN-02    | 10    | Complete |
+| CLEAN-03    | 10    | Complete |
 
 **Coverage:**
 
