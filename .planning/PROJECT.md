@@ -10,20 +10,16 @@ Each user's sessions, messages, and agent interactions are completely isolated f
 
 ## Current State
 
-`v1.0` is complete and ships OpenCode Multi-User Isolation.
+**Shipped:** `v1.1` Isolation Boundary Tightening (2026-03-18)
 
-Delivery covered API authentication, user-scoped session ownership, admin user management, usage tracking and quotas, model allowlist enforcement, and follow-up testing and typecheck cleanup. A milestone audit was reviewed before release, and the remaining gaps were accepted as tech debt.
+`v1.1` tightened the isolation service around four scoped outcomes:
 
-## Current Milestone: v1.1 Isolation Boundary Tightening
+- End-to-end ownership enforcement on session-derived resources (messages, parts)
+- Preserved per-user usage accounting and quota enforcement
+- Explicit service boundary documentation (registration is external)
+- Restored validation evidence for all phases
 
-**Goal:** Narrow this service to multi-user isolation and related backend safeguards while moving registration responsibilities out to the frontend and a separate service.
-
-**Target features:**
-
-- Complete end-to-end ownership enforcement for session-derived resources
-- Preserve per-user token and usage accounting as a first-class service capability
-- Clarify and enforce service boundaries around user registration and lifecycle ownership
-- Close archived validation and evidence gaps from `v1.0`
+All 8 v1.1 requirements satisfied. Cross-phase integration verified. Nyquist-compliant validation coverage complete.
 
 ## Requirements
 
@@ -41,13 +37,14 @@ Delivery covered API authentication, user-scoped session ownership, admin user m
 - ✓ Per-user usage statistics API — `v1.0`
 - ✓ Usage recording and quota enforcement — `v1.0`
 - ✓ Model allowlist enforcement in provider resolution — `v1.0`
+- ✓ Session-derived message/part ownership enforcement — `v1.1`
+- ✓ Per-user usage accounting preserved after boundary cleanup — `v1.1`
+- ✓ Service boundary documentation (registration external) — `v1.1`
+- ✓ Validation evidence restoration for all phases — `v1.1`
 
 ### Active
 
-- [ ] Enforce session ownership on message and part routes so isolation holds end-to-end
-- [ ] Preserve per-user token and usage statistics while tightening service boundaries
-- [ ] Remove user registration responsibility from this project and document the new boundary clearly
-- [ ] Add missing phase `*-VALIDATION.md` artifacts for archived milestone evidence
+(Next milestone requirements will be defined via `/gsd-new-milestone`)
 
 ### Out of Scope
 
@@ -119,4 +116,4 @@ Current product boundary for `v1.1`:
 
 ---
 
-_Last updated: 2026-03-18 after starting `v1.1` milestone_
+_Last updated: 2026-03-18 after v1.1 milestone_
