@@ -15,8 +15,8 @@ Requirements for milestone `v1.1`. Each maps to exactly one roadmap phase.
 
 ### Service Boundary
 
-- [ ] **BNDR-01**: Admin can manage the local user projection needed for isolation and quotas without exposing signup or onboarding flows from this service
-- [ ] **BNDR-02**: Service API and planning docs describe registration as external to this project
+- [x] **BNDR-01**: Admin can manage the local user projection needed for isolation and quotas without exposing signup or onboarding flows from this service
+- [x] **BNDR-02**: Service API and planning docs describe registration as external to this project
 
 ### Usage Accounting
 
@@ -65,8 +65,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SESS-07     | Phase 5 | Complete |
 | SESS-08     | Phase 5 | Complete |
 | SESS-09     | Phase 5 | Pending |
-| BNDR-01     | Phase 6 | Pending |
-| BNDR-02     | Phase 6 | Pending |
+| BNDR-01     | Phase 6 | Complete |
+| BNDR-02     | Phase 6 | Complete |
 | USAGE-05    | Phase 6 | Pending |
 | USAGE-06    | Phase 6 | Pending |
 | EVID-01     | Phase 7 | Pending |

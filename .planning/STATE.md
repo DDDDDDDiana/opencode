@@ -5,20 +5,20 @@ milestone_name: milestone
 current_phase: 6
 current_plan: Not started
 status: planning
-last_updated: "2026-03-18T02:30:04.926Z"
+last_updated: "2026-03-18T02:53:47.835Z"
 last_activity: 2026-03-18 - Completed Phase 5 Plan 02 - Message and part mutation ownership guard
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 4
+  completed_plans: 3
 ---
 
 # Project State: OpenCode Multi-User Isolation
 
 **Last Updated:** 2026-03-18  
 **Current Phase:** 6
-**Current Plan:** Not started
+**Current Plan:** 01 (completed)
 
 ## Project Reference
 
@@ -28,10 +28,10 @@ progress:
 
 ## Current Position
 
-**Phase:** Phase 5 - Session-Derived Ownership Closure  
-**Plan:** -  
-**Status:** Ready to plan
-**Last activity:** 2026-03-18 - Completed Phase 5 Plan 02 - Message and part mutation ownership guard
+**Phase:** Phase 6 - Service Boundary and Accounting Preservation  
+**Plan:** 01 (completed)  
+**Status:** In progress
+**Last activity:** 2026-03-18 - Completed Phase 6 Plan 01 - Service boundary and admin API clarity
 
 ## Accumulated Context
 
@@ -60,6 +60,9 @@ progress:
 | Keep registration outside this service in `v1.1`   | Preserve backend focus on isolation and accounting        | 2026-03-18 |
 | Shared guard helper for all session-derived routes | Reuses Session.get() for consistent ownership enforcement | 2026-03-18 |
 | Guard runs before message/part mutations           | Ensures unauthorized sessions never execute mutations     | 2026-03-18 |
+| Use 'Admin:' prefix in user route descriptions     | Makes admin-facing nature explicit in OpenAPI docs        | 2026-03-18 |
+| Position POST /user as provisioning                | Clarifies local projection vs registration responsibility | 2026-03-18 |
+| Document registration as external in README        | Establishes clear service boundary for user lifecycle     | 2026-03-18 |
 
 ### Active TODOs
 
@@ -77,6 +80,7 @@ progress:
 
 ### Recent Changes
 
+- 2026-03-18: Completed Phase 6 Plan 01 - Service boundary and admin API clarity
 - 2026-03-18: Completed Phase 5 Plan 02 - Message and part mutation ownership guard
 - 2026-03-18: Completed Phase 5 Plan 01 - Session-derived message ownership guard
 - 2026-03-18: Created `v1.1` roadmap with 3 phases starting at Phase 5 and mapped all 8 milestone requirements
@@ -99,7 +103,7 @@ progress:
 
 ## Session Continuity
 
-**Next Action:** Run `/gsd-plan-phase 5`.
+**Next Action:** Execute Phase 6 Plan 02.
 
 **Context for Next Session:**
 
