@@ -131,7 +131,7 @@ export namespace Server {
         }),
       )
       .use(async (c, next) => {
-        const exempt = ["/health", "/metrics", "/ready", "/log", "/doc"]
+        const exempt = ["/health", "/metrics", "/ready", "/log", "/doc", "/user"]
         if (exempt.some((path) => c.req.path.startsWith(path))) {
           return next()
         }
