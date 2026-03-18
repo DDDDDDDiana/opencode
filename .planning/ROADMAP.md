@@ -11,17 +11,17 @@
 
 ## Phases
 
-- [ ] **Phase 5: Session-Derived Ownership Closure** - Close the remaining message and part ownership gap through one shared session-root guard.
+- [x] **Phase 5: Session-Derived Ownership Closure** - Close the remaining message and part ownership gap through one shared session-root guard.
 - [ ] **Phase 6: Service Boundary and Accounting Preservation** - Keep registration outside this service while preserving the local user projection, usage totals, and quota enforcement.
 - [ ] **Phase 7: Validation Evidence Restoration** - Restore milestone proof that ownership enforcement and retained accounting both work in `v1.1`.
 
 ## Progress
 
-| Phase                                           | Plans Complete | Status      | Completed |
-| ----------------------------------------------- | -------------- | ----------- | --------- |
-| 5. Session-Derived Ownership Closure            | 0/2            | Not started | -         |
-| 6. Service Boundary and Accounting Preservation | 0/TBD          | Not started | -         |
-| 7. Validation Evidence Restoration              | 0/TBD          | Not started | -         |
+| Phase                                           | Plans Complete | Status      | Completed  |
+| ----------------------------------------------- | -------------- | ----------- | ---------- |
+| 5. Session-Derived Ownership Closure            | 2/2            | Complete    | 2026-03-18 |
+| 6. Service Boundary and Accounting Preservation | 0/2            | Not started | -          |
+| 7. Validation Evidence Restoration              | 0/TBD          | Not started | -          |
 
 ## Phase Details
 
@@ -41,8 +41,8 @@
 
 Plans:
 
-- [ ] `05-01-PLAN.md` — Add one shared session-root ownership guard to all session-derived message read routes.
-- [ ] `05-02-PLAN.md` — Extend the shared guard to message/part mutations and add ownership regressions.
+- [x] `05-01-PLAN.md` — Add one shared session-root ownership guard to all session-derived message read routes.
+- [x] `05-02-PLAN.md` — Extend the shared guard to message/part mutations and add ownership regressions.
 
 ### Phase 6: Service Boundary and Accounting Preservation
 
@@ -56,7 +56,12 @@ Plans:
 3. Per-user token and usage totals continue to accrue to the correct user after the boundary cleanup.
 4. Quota enforcement still uses persisted per-user usage totals to block over-limit work after the boundary cleanup.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+
+- [ ] `06-01-PLAN.md` — Update API docs and README to clarify admin provisioning boundary.
+- [ ] `06-02-PLAN.md` — Add usage accounting regression tests to verify preservation.
 
 ### Phase 7: Validation Evidence Restoration
 
