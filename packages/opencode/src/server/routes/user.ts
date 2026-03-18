@@ -13,7 +13,8 @@ export const UserRoutes = lazy(() =>
       "/",
       describeRoute({
         summary: "Create user",
-        description: "Create a new user and return their info along with a plaintext API key.",
+        description:
+          "Admin: Provision a local user projection for isolation and quota enforcement. Returns user info and plaintext API key for the provisioned user.",
         operationId: "user.create",
         responses: {
           201: {
@@ -55,7 +56,7 @@ export const UserRoutes = lazy(() =>
       "/:userID",
       describeRoute({
         summary: "Get user",
-        description: "Retrieve user info by ID. Does not include the API key hash.",
+        description: "Admin: Retrieve user info by ID. Does not include the API key hash.",
         operationId: "user.get",
         responses: {
           200: {
@@ -79,7 +80,7 @@ export const UserRoutes = lazy(() =>
       "/:userID",
       describeRoute({
         summary: "Update user",
-        description: "Update quota settings or name for a user.",
+        description: "Admin: Update quota settings or name for a provisioned user.",
         operationId: "user.update",
         responses: {
           200: {
@@ -113,7 +114,7 @@ export const UserRoutes = lazy(() =>
       "/:userID",
       describeRoute({
         summary: "Delete user",
-        description: "Remove a user and orphan their sessions.",
+        description: "Admin: Remove a provisioned user and orphan their sessions.",
         operationId: "user.remove",
         responses: {
           200: {
@@ -137,7 +138,7 @@ export const UserRoutes = lazy(() =>
       "/:userID/usage",
       describeRoute({
         summary: "Get user usage",
-        description: "Retrieve token usage stats aggregated by date for a user.",
+        description: "Admin: Retrieve token usage stats aggregated by date for a user.",
         operationId: "user.usage",
         responses: {
           200: {
