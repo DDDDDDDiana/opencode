@@ -11,7 +11,7 @@ Requirements for milestone `v1.1`. Each maps to exactly one roadmap phase.
 
 - [x] **SESS-07**: User can read messages only when the parent session belongs to that user
 - [x] **SESS-08**: User can read parts only when the parent session belongs to that user
-- [ ] **SESS-09**: User-facing session-derived routes use one shared ownership guard before loading protected data
+- [x] **SESS-09**: User-facing session-derived routes use one shared ownership guard before loading protected data
 
 ### Service Boundary
 
@@ -25,7 +25,7 @@ Requirements for milestone `v1.1`. Each maps to exactly one roadmap phase.
 
 ### Validation Evidence
 
-- [ ] **EVID-01**: Maintainer can review milestone validation artifacts that prove ownership enforcement and retained usage accounting for `v1.1`
+- [x] **EVID-01**: Maintainer can review milestone validation artifacts that prove ownership enforcement and retained usage accounting for `v1.1`
 
 ## v2 Requirements
 
@@ -60,16 +60,16 @@ Deferred from `v1.1`. Tracked, but not included in this roadmap.
 
 Which phases cover which requirements. Updated during roadmap creation.
 
-| Requirement | Phase   | Status  |
-| ----------- | ------- | ------- |
+| Requirement | Phase   | Status   |
+| ----------- | ------- | -------- |
 | SESS-07     | Phase 5 | Complete |
 | SESS-08     | Phase 5 | Complete |
-| SESS-09     | Phase 5 | Pending |
+| SESS-09     | Phase 5 | Complete |
 | BNDR-01     | Phase 6 | Complete |
 | BNDR-02     | Phase 6 | Complete |
 | USAGE-05    | Phase 6 | Complete |
 | USAGE-06    | Phase 6 | Complete |
-| EVID-01     | Phase 7 | Pending |
+| EVID-01     | Phase 7 | Complete |
 
 **Coverage:**
 
