@@ -1,5 +1,23 @@
 # Milestones
 
+## v1.2 禁止匿名模式 (Shipped: 2026-03-18)
+
+**Phases completed:** 3 phases, 3 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
+## v1.1 Isolation Boundary Tightening (Shipped: 2026-03-18)
+
+**Phases completed:** 3 phases, 6 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## v1.0
 
 - **Status:** Completed

@@ -8,15 +8,17 @@ OpenCode is an AI-powered coding assistant CLI and server. This project adds mul
 
 Each user's sessions, messages, and agent interactions are completely isolated from other users — no data leakage, no shared state.
 
-## Current Milestone: v1.2 禁止匿名模式
+## Current State
 
-**Goal:** Require API key authentication for all requests — remove anonymous fallback
+**Latest Release:** v1.2 禁止匿名模式 (shipped 2026-03-18)
 
-**Target features:**
+OpenCode now enforces mandatory API key authentication for all requests. Anonymous access has been removed, and the type system prevents anonymous code paths at compile time.
 
-- Reject all requests without valid API key
-- Remove anonymous session access
-- Enforce authentication at middleware level
+**Key Changes in v1.2:**
+
+- Database migration: SessionTable.user_id now NOT NULL
+- Authentication middleware: All requests require valid API key
+- Type system cleanup: Identity type simplified to Authenticated only
 
 ## Requirements
 
@@ -37,12 +39,15 @@ Each user's sessions, messages, and agent interactions are completely isolated f
 - ✓ Session-derived routes enforce ownership — v1.1
 - ✓ Service boundary clarity with admin API documentation — v1.1
 - ✓ Usage accounting preserved across ownership changes — v1.1
+- ✓ Mandatory authentication — all requests require valid API key — v1.2
+- ✓ Remove anonymous fallback logic from UserContext — v1.2
+- ✓ Return 401 Unauthorized for missing/invalid API keys — v1.2
+- ✓ Database migration for NOT NULL user_id constraint — v1.2
+- ✓ Type system hardening — Identity = Authenticated only — v1.2
 
 ### Active
 
-- [ ] Mandatory authentication — all requests require valid API key
-- [ ] Remove anonymous fallback logic from UserContext
-- [ ] Return 401 Unauthorized for missing/invalid API keys
+(Next milestone requirements will be defined via `/gsd-new-milestone`)
 
 ### Out of Scope
 

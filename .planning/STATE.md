@@ -5,7 +5,7 @@ milestone_name: 禁止匿名模式
 current_phase: 10
 current_plan: Not started
 status: completed
-last_updated: "2026-03-18T07:19:16.984Z"
+last_updated: "2026-03-18T08:07:37.331Z"
 last_activity: 2026-03-18 — Completed Phase 10 Plan 01 - Remove anonymous identity type
 progress:
   total_phases: 3
@@ -31,7 +31,7 @@ progress:
 
 **Phase:** 10 - Code Cleanup  
 **Plan:** 01  
-**Status:** Milestone complete
+**Status:** v1.2 milestone complete
 **Progress:** [██████████] 100%
 **Last activity:** 2026-03-18 — Completed Phase 10 Plan 01 - Remove anonymous identity type
 
