@@ -44,11 +44,10 @@ import { Filesystem } from "@/util/filesystem"
 import { QuestionRoutes } from "./routes/question"
 import { PermissionRoutes } from "./routes/permission"
 import { GlobalRoutes } from "./routes/global"
-import { UserRoutes } from "./routes/user"
 import { MDNS } from "./mdns"
 import { lazy } from "@/util/lazy"
-import { UserContext } from "../user/user-context"
 import { resolve } from "./user-auth"
+import { UserContext } from "../user/user-context"
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout https://github.com/vercel/ai/blob/2dc67e0ef538307f21368db32d5a12345d98831b/packages/ai/src/logger/log-warnings.ts#L85
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -132,12 +131,27 @@ export namespace Server {
         }),
       )
       .use(async (c, next) => {
+        const exempt = ["/health", "/metrics", "/ready", "/log", "/doc"]
+        if (exempt.some((path) => c.req.path.startsWith(path))) {
+          return next()
+        }
+
         const key = c.req.header("x-opencode-api-key")
         const identity = await resolve(key)
+
+        if (identity.state === "anonymous") {
+          return c.json(
+            { error: "Unauthorized", message: "Valid API key required" },
+            {
+              status: 401,
+              headers: { "WWW-Authenticate": 'Bearer realm="opencode"' },
+            },
+          )
+        }
+
         return UserContext.provide(identity, () => next())
       })
       .route("/global", GlobalRoutes())
-      .route("/user", UserRoutes())
       .put(
         "/auth/:providerID",
         describeRoute({
