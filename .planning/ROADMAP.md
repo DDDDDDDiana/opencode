@@ -20,7 +20,7 @@
 | Phase                                           | Plans Complete | Status      | Completed  |
 | ----------------------------------------------- | -------------- | ----------- | ---------- |
 | 5. Session-Derived Ownership Closure            | 2/2            | Complete    | 2026-03-18 |
-| 6. Service Boundary and Accounting Preservation | 2/2 | Complete   | 2026-03-18 |
+| 6. Service Boundary and Accounting Preservation | 2/2            | Complete    | 2026-03-18 |
 | 7. Validation Evidence Restoration              | 0/TBD          | Not started | -          |
 
 ## Phase Details
@@ -74,4 +74,9 @@ Plans:
 2. A maintainer can review archived validation artifacts showing per-user usage accounting and quota enforcement still work in `v1.1`.
 3. The milestone archive clearly points to the validation evidence needed to verify the shipped `v1.1` claims.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+
+- [ ] `07-01-PLAN.md` — Backfill v1.0 phase VALIDATION.md files from existing verification reports
+- [ ] `07-02-PLAN.md` — Create v1.1 milestone validation summary with artifact index
