@@ -16,9 +16,11 @@ describe("server authentication middleware", () => {
         }
 
         const key = c.req.header("x-opencode-api-key")
-        const identity = await resolve(key)
 
-        if (identity.state === "anonymous") {
+        try {
+          const identity = await resolve(key)
+          return UserContext.provide(identity, () => next())
+        } catch {
           return c.json(
             { error: "Unauthorized", message: "Valid API key required" },
             {
@@ -27,8 +29,6 @@ describe("server authentication middleware", () => {
             },
           )
         }
-
-        return UserContext.provide(identity, () => next())
       })
       .get("/session", (c) => c.json({ sessions: [] }))
       .get("/health", (c) => c.json({ status: "ok" }))

@@ -137,9 +137,11 @@ export namespace Server {
         }
 
         const key = c.req.header("x-opencode-api-key")
-        const identity = await resolve(key)
 
-        if (identity.state === "anonymous") {
+        try {
+          const identity = await resolve(key)
+          return UserContext.provide(identity, () => next())
+        } catch {
           return c.json(
             { error: "Unauthorized", message: "Valid API key required" },
             {
@@ -148,8 +150,6 @@ export namespace Server {
             },
           )
         }
-
-        return UserContext.provide(identity, () => next())
       })
       .route("/global", GlobalRoutes())
       .put(
