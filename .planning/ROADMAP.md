@@ -91,7 +91,7 @@ Plans:
 | ----------------------------- | -------------- | ----------- | ---------- |
 | 8. Data Migration             | 0/0            | Not started | -          |
 | 9. Authentication Enforcement | 1/1            | Complete    | 2026-03-18 |
-| 10. Code Cleanup              | 1/1 | Complete   | 2026-03-18 |
+| 10. Code Cleanup              | 1/1 | Complete    | 2026-03-18 |
 
 ---
 
