@@ -44,6 +44,7 @@ import { Filesystem } from "@/util/filesystem"
 import { QuestionRoutes } from "./routes/question"
 import { PermissionRoutes } from "./routes/permission"
 import { GlobalRoutes } from "./routes/global"
+import { UserRoutes } from "./routes/user"
 import { MDNS } from "./mdns"
 import { lazy } from "@/util/lazy"
 import { resolve } from "./user-auth"
@@ -269,6 +270,7 @@ export namespace Server {
       .route("/config", ConfigRoutes())
       .route("/experimental", ExperimentalRoutes())
       .route("/session", SessionRoutes())
+      .route("/user", UserRoutes())
       .route("/permission", PermissionRoutes())
       .route("/question", QuestionRoutes())
       .route("/provider", ProviderRoutes())
