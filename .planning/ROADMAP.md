@@ -62,7 +62,12 @@ Plans:
 2. User receives 401 Unauthorized when sending request with invalid API key
 3. User with valid API key can access their sessions normally
 4. Admin can authenticate with OPENCODE_SERVER_PASSWORD independently of user API keys
-   **Plans**: TBD
+
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 09-01-PLAN.md — Add user authentication middleware to server.ts
 
 ### Phase 10: Code Cleanup
 
