@@ -1,194 +1,186 @@
 # Project Research Summary
 
-**Project:** OpenCode Multi-User Isolation  
-**Domain:** Brownfield multi-user isolation and usage-accounting service boundary tightening  
-**Researched:** 2026-03-18  
+**Project:** OpenCode v1.2 - Mandatory Authentication
+**Domain:** Multi-tenant API security hardening
+**Researched:** 2026-03-18
 **Confidence:** HIGH
 
 ## Executive Summary
 
-`v1.1` is not a net-new auth or user-management build. It is a brownfield hardening milestone for an existing OpenCode service that should remain focused on three things: proving caller identity inside this service, enforcing ownership across all session-derived resources, and preserving per-user token and quota accounting. Experts build this kind of product by keeping request auth and ownership checks close to the resource graph, keeping lifecycle state minimal and local, and pushing signup/onboarding out to a dedicated frontend or identity owner.
+OpenCode v1.2 removes anonymous fallback and enforces mandatory API key authentication for all requests. This is a security hardening milestone that tightens multi-tenant isolation boundaries. All authentication infrastructure already exists from v1.0/v1.1 — this milestone simply changes middleware behavior to reject unauthenticated requests instead of allowing them through.
 
-The recommended approach is to keep the current Bun + TypeScript + Effect + Hono + Drizzle + SQLite stack stable and tighten enforcement at the seams. Session ownership remains the root policy. Messages and parts must never authorize independently; every derived-resource route should prove access to the parent session first, then proceed. User records should shrink to a local enforcement projection only: immutable IDs, status/tombstone state, quotas, allowlists, and timestamps. Usage recording, quota checks, API key auth, and AsyncLocalStorage context propagation should stay in this service.
+The recommended approach is minimal and surgical: add authentication middleware that rejects anonymous identity states, remove the anonymous fallback from UserContext, and ensure all session queries filter by user_id. No new stack components are needed. The entire implementation requires modifying ~20 lines of code across 3 files.
 
-The main risks are boundary drift and false confidence. The service can look isolated while message/part routes still leak across users, anonymous compatibility can accidentally become a bypass, and deleted users can keep readable usage paths if lifecycle state is not modeled consistently. Mitigation is opinionated: centralize `Session.require(sessionID)`, tombstone instead of orphaning ownership, gate all user-facing usage reads on active lifecycle state, and remove signup/onboarding semantics from the API surface and docs at the same time the backend hardening ships.
+The key risk is orphaned data from anonymous sessions created before v1.2. Migration must happen before code deployment: either assign NULL user_id sessions to a system owner or delete them, then make user_id NOT NULL in the schema. Secondary risks include accidentally blocking health checks and internal routes, middleware ordering breaking authentication context, and forgetting to clean up anonymous code paths after enforcement is live.
 
 ## Key Findings
 
 ### Recommended Stack
 
-Research strongly favors a tightening-in-place strategy. The current runtime, middleware, ORM, and SQLite setup already fit the milestone. The important changes are schema constraints, ownership middleware, and lifecycle state handling, not framework replacement.
+**No new stack components needed.** All authentication infrastructure exists from v1.0/v1.1. This milestone removes anonymous fallback by changing middleware behavior and error responses.
 
 **Core technologies:**
 
-- **Bun 1.3.10**: runtime, SQLite access, crypto — keep stable; foreign-key enforcement already matters to isolation integrity.
-- **TypeScript 5.8.2 + Effect 4.0.0-beta.31**: typed service boundaries and request context — keep stable; add ownership helpers within existing service patterns.
-- **Hono 4.10.7 + hono-openapi 1.1.2**: request boundary and typed middleware — keep stable; add reusable ownership guards for session-derived routes.
-- **Drizzle ORM + SQLite 1.0.0-beta.16-ea816b6**: schema constraints, migrations, indexes, foreign keys — keep stable; tighten integrity and add lifecycle/accounting constraints.
-- **Zod 4.1.8**: narrow external lifecycle payload validation — add only for bounded provisioning/sync payloads.
-- **bcrypt (existing)**: API key verification — keep as-is for this milestone; do not expand auth scope.
+- Hono middleware chain — already handles CORS, logging, context setup; insert auth middleware after CORS
+- UserContext ALS — already propagates identity through request lifecycle; remove anonymous fallback
+- bcrypt API key verification — already implemented in resolve() function; middleware just needs to reject anonymous state
+- SQLite with user_id foreign keys — already exists in SessionTable; queries need to filter by user_id
 
-**Critical stack changes:**
-
-- Add an ownership-guard layer, not a new auth framework.
-- Add `user.status` or `time_deleted`, `user.external_id`, and `api_key.time_revoked`.
-- Add `usage.user_id -> user.id` foreign key and indexes that match real ownership/accounting queries.
-- Tighten `message`/`part` integrity so cross-session mismatches become impossible.
-
-**What should remain stable:** Bun runtime, Hono request pipeline order, `UserContext` ALS, API key auth model, `SessionTable.user_id` as ownership anchor, usage recording path, quota/model allowlist enforcement.
-
-**What should change:** route-level ownership coverage, delete/deactivate semantics, usage endpoint lifecycle gating, user schema shape, and public user API scope.
+**Critical version requirements:** None. Existing dependencies sufficient.
 
 ### Expected Features
 
-`v1.1` should behave like a policy-enforcement and accounting service, not a user-lifecycle product.
-
 **Must have (table stakes):**
 
-- End-to-end ownership enforcement on session-derived resources.
-- Authenticated user context bound early in request handling.
-- Active/disabled/deleted user gating.
-- Per-user usage/token ledger preservation.
-- Hard quota enforcement.
-- Ownership-safe anonymous compatibility for legacy deployments.
-- Validation and audit evidence restoration.
+- 401 Unauthorized for missing/invalid API keys — HTTP standard, clients expect this
+- WWW-Authenticate header in 401 responses — HTTP spec requirement
+- Middleware-level enforcement — auth must happen before business logic
+- Remove anonymous fallback from UserContext — security model requires all requests authenticated
+- Consistent error response format — API clients expect structured error messages
 
-**Should have (competitive/admin ergonomics):**
+**Should have (competitive):**
 
-- Admin-safe disable/revoke flows.
-- Usage breakdowns or exports by model/session/time window.
-- Cross-route isolation violation telemetry.
-- Scoped API key rotation / multiple keys per user.
+- Throttled logging for invalid keys — prevents log spam from brute force (already implemented, preserve it)
+- Clear error messages distinguishing missing vs invalid — better DX (already distinguished in resolve())
+- Graceful migration path documentation — helps existing deployments upgrade
 
-**Defer (v1.1.x or v2+):**
+**Defer (v2+):**
 
-- Quota threshold warnings.
-- Rich role/policy systems.
-- Enterprise provisioning workflows inside this service.
-- External billing/invoicing.
-- Any self-service signup, onboarding, invite, recovery, or profile-management UX.
-
-**Boundary call:** registration, signup, onboarding, password/email/MFA flows, and non-isolation profile management should move out and stay out.
+- Rate limiting per IP for failed auth — current throttled logging sufficient for v1.2
+- Audit log for rejected attempts — security monitoring, not blocking for launch
+- Webhook notifications for auth failures — overkill for initial release
 
 ### Architecture Approach
 
-Architecture research converges on one central rule: sessions remain the ownership root. The existing request pipeline is already structurally correct — basic auth, API key resolution, `UserContext`, workspace, and instance contexts — so the milestone should preserve that order and push enforcement deeper. Add a shared `Session.require(sessionID)` helper, call it from session/message/part routes, and backstop it inside lower-level helpers like `message-v2` and session mutation functions.
+The architecture change is minimal: insert authentication middleware between CORS and WorkspaceContext setup. Middleware calls resolve() to validate API keys, rejects anonymous identity states with 401, and wraps downstream handlers in UserContext.provide(). All session queries add user_id filtering to enforce isolation. No new components, no schema changes beyond making user_id NOT NULL after migration.
 
 **Major components:**
 
-1. **Request boundary (`server/server.ts`, `user-auth.ts`)** — keep middleware order stable, resolve API key to active local user, reject deleted/deactivated identities.
-2. **User domain (`user/*`)** — store minimal local projection for status, quotas, allowlists, external ID, and tombstone state; support upsert/deactivate rather than registration UX.
-3. **Session domain (`session/*`)** — remain canonical ownership root via `Session.require(sessionID)` / shared access helper.
-4. **Message/part handlers (`server/routes/session.ts`, `session/message-v2.ts`)** — treat derived resources as session-scoped only; never authorize independently.
-5. **Usage domain (`user/usage.ts`, `session/processor.ts`)** — keep append-only per-user accounting and gate public reads by lifecycle state.
-6. **External lifecycle boundary** — accept bounded sync/admin inputs for provision/update/deactivate only.
+1. Auth middleware (NEW) — validates API key, rejects anonymous, provides UserContext
+2. UserContext module (MODIFIED) — remove anonymous fallback, guarantee authenticated identity
+3. Session queries (MODIFIED) — add user_id filters to list(), get(), createNext()
 
 ### Critical Pitfalls
 
-1. **Ownership checks stop at sessions** — fix by requiring every message/part/fork/share path to resolve back through the parent session and current user.
-2. **Anonymous compatibility becomes a bypass** — make no-auth behavior explicit and deployment-aware; do not let `user_id IS NULL` become accidental public access.
-3. **Deleted users become dangling readable identities** — tombstone users, revoke keys, preserve ownership/accounting rows, and fail closed on `/user/:id/usage`.
-4. **This service regrows into a registration system** — remove self-service lifecycle semantics and keep only bounded sync/admin controls required for isolation safety.
-5. **External identity sync is treated as strongly consistent** — design sync as idempotent and replay-safe; key on immutable upstream IDs only.
+1. **Orphaned sessions from anonymous users** — Existing sessions with user_id = NULL become inaccessible after mandatory auth. Prevention: migrate NULL sessions before deployment, make user_id NOT NULL in schema, deploy in sequence (migration → schema → code).
+
+2. **Health check and internal routes blocked** — Health checks, metrics, admin routes fail with 401. Prevention: whitelist internal routes (/health, /metrics, /log), separate admin auth (OPENCODE_SERVER_PASSWORD) from user auth (API keys).
+
+3. **Middleware ordering breaks authentication** — User auth runs in wrong position, causing UserContext.get() to return anonymous despite valid keys. Prevention: correct order is CORS → basicAuth → user auth → logging → workspace routing → instance setup.
+
+4. **Missing 401 response for invalid keys** — Requests with invalid keys receive 200 OK with empty data instead of 401. Prevention: fail fast in middleware, return 401 immediately for anonymous state (except whitelisted routes).
+
+5. **Forgotten anonymous code paths** — Code still handles anonymous users even after mandatory auth. Prevention: remove Anonymous from Identity union, delete anonymous tests, simplify UserContext.get() to throw if not authenticated, grep for "anonymous" and remove handling code.
 
 ## Implications for Roadmap
 
 Based on research, suggested phase structure:
 
-### Phase 1: Ownership Closure on Session-Derived Resources
+### Phase 1: Data Migration & Schema Hardening
 
-**Rationale:** This is the core accepted gap from `v1.0`, and every other milestone claim depends on it being true end-to-end.
-**Delivers:** Shared `Session.require(sessionID)` guard, route hardening for message/part/prompt paths, defense-in-depth in `message-v2` and session mutation helpers, negative authorization test matrix, restored validation evidence.
-**Addresses:** End-to-end ownership enforcement, authenticated user context reuse, audit-quality authorization evidence.
-**Avoids:** Ownership gaps on derived resources; anonymous fallback becoming an accidental bypass.
-**Research flag:** Standard pattern — skip extra research unless a specific route graph proves unusual.
+**Rationale:** Must happen before code changes to prevent orphaned data. Database state must be clean before enforcement begins.
+**Delivers:** All sessions have valid user_id, schema enforces NOT NULL constraint
+**Addresses:** Orphaned sessions pitfall (critical)
+**Avoids:** Data loss, inaccessible sessions, production rollback
 
-### Phase 2: Lifecycle Boundary Hardening
+**Tasks:**
 
-**Rationale:** Once ownership is correct, the next risk is bad identity state: deleted users, over-broad user CRUD, and fuzzy admin vs user boundaries.
-**Delivers:** Tombstoned users or `time_deleted`, revoked keys, `User.getActive(userID)`, bounded provision/update/deactivate surface, removal of registration semantics, user-facing usage endpoints that fail closed for deleted/unknown users.
-**Addresses:** Active/deleted/suspended user gating, admin-safe disable/revoke flows, boundary cleanup around registration ownership.
-**Avoids:** Dangling deleted-user access, registration scope creep, admin/user boundary blur, orphaned sessions.
-**Research flag:** Needs targeted phase research for upstream sync contract, admin authorization shape, and eventual-consistency handling.
+- Write migration script to handle NULL user_id sessions (assign to system user or delete)
+- Alter SessionTable.user_id to NOT NULL
+- Verify no orphaned data in production before proceeding
 
-### Phase 3: Accounting Integrity and Query Tightening
+**Research flag:** Standard pattern (database migration), no additional research needed.
 
-**Rationale:** Usage and quota correctness only matter once identity and ownership are trustworthy.
-**Delivers:** `usage.user_id` referential integrity, preserved append-only accounting, lifecycle-aware usage/report predicates, shared accounting predicates, indexes for ownership and reporting paths, reconciliation tests.
-**Addresses:** Per-user usage/token ledger, hard quota enforcement, scoped usage reporting/export foundations.
-**Avoids:** Usage attribution drift, reporting vs enforcement drift, performance regression from unindexed ownership/accounting queries.
-**Research flag:** Needs targeted research if reporting semantics for active vs deleted users become product-sensitive.
+### Phase 2: Middleware Implementation & Route Exemptions
 
-### Phase 4: Optional Admin Observability and Ergonomics
+**Rationale:** Core enforcement logic. Must handle both user authentication and internal route exemptions to avoid breaking infrastructure.
+**Delivers:** Mandatory authentication enforced, health checks still work, admin routes use separate auth
+**Addresses:** Missing 401 responses, health check blocking, middleware ordering, auth/admin boundary blur
+**Uses:** Hono middleware, resolve() function, UserContext ALS
+**Implements:** Auth middleware component
 
-**Rationale:** Only add this after correctness, boundaries, and accounting are stable.
-**Delivers:** Isolation violation telemetry, usage breakdowns/exports, scoped key rotation improvements, quota warnings if needed.
-**Addresses:** Differentiators and admin ergonomics without reopening scope.
-**Avoids:** Shipping nice-to-haves before trustworthiness is established.
-**Research flag:** Standard patterns for telemetry/export; skip unless a specific external integration is introduced.
+**Tasks:**
+
+- Add auth middleware after CORS in server.ts
+- Whitelist internal routes (/health, /metrics, /ready, /log)
+- Preserve admin auth (OPENCODE_SERVER_PASSWORD) separate from user auth
+- Return 401 with WWW-Authenticate header for anonymous state
+- Integration test covering full middleware stack
+
+**Research flag:** Standard pattern (middleware insertion), no additional research needed.
+
+### Phase 3: Cleanup & Type System Hardening
+
+**Rationale:** Remove dead code and tighten type system after enforcement is live. Prevents future regressions.
+**Delivers:** No anonymous code paths, simplified type system, cleaner codebase
+**Addresses:** Forgotten anonymous code paths, usage attribution drift, accounting integrity
+**Avoids:** Security holes from dead code, confusion from unreachable paths
+
+**Tasks:**
+
+- Remove Anonymous from Identity union type
+- Delete anonymous tests in user-context.test.ts
+- Remove fallback logic from UserContext.get()
+- Grep for "anonymous" and remove handling code
+- Update resolve() to throw instead of returning anonymous state
+- Add user_id filters to all session queries (list, listGlobal, get, createNext)
+
+**Research flag:** Standard pattern (code cleanup), no additional research needed.
 
 ### Phase Ordering Rationale
 
-- Ownership comes first because lifecycle and accounting logic are meaningless if derived resources still bypass the session root.
-- Lifecycle hardening comes before accounting cleanup because tombstone and revocation rules define what “valid subject” means.
-- Accounting integrity comes after lifecycle semantics so enforcement and reporting can share one canonical subject model.
-- Optional admin ergonomics should stay last to avoid brownfield churn and boundary drift during a corrective milestone.
-- Architecture suggests grouping by enforcement layer: ingress/auth reuse → ownership root → lifecycle state → accounting/reporting → optional ops visibility.
+- **Phase 1 first:** Database migration must happen before code deployment. Deploying enforcement with NULL user_id rows causes data loss.
+- **Phase 2 second:** Middleware enforcement is the core change. Must handle route exemptions to avoid breaking infrastructure.
+- **Phase 3 last:** Cleanup happens after enforcement is validated. Removing anonymous types before middleware is live would break compilation.
+
+**Dependency chain:** Migration → Schema → Middleware → Cleanup. Each phase depends on the previous completing successfully.
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
-
-- **Phase 2:** upstream lifecycle sync contract, idempotency, replay/out-of-order handling, and admin/service-to-service auth boundary.
-- **Phase 3:** exact reporting semantics for deleted users, reconciliation rules, and whether historical/internal audit access needs a separate surface.
-
 Phases with standard patterns (skip research-phase):
 
-- **Phase 1:** centralized object-ownership enforcement and deny-by-default authorization are well-established patterns.
-- **Phase 4:** telemetry, exports, and key-rotation ergonomics are optional extensions with established implementation patterns.
+- **Phase 1:** Database migration — well-documented pattern, existing migration infrastructure
+- **Phase 2:** Middleware insertion — Hono middleware pattern already used in codebase
+- **Phase 3:** Code cleanup — straightforward refactoring, no external dependencies
+
+**No phases need additional research.** All patterns are standard, infrastructure exists, and implementation is surgical.
 
 ## Confidence Assessment
 
-| Area         | Confidence | Notes                                                                                                                                    |
-| ------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Stack        | HIGH       | Based on existing codebase fit plus official Hono, Drizzle, SQLite, and Zod guidance; the recommendation is mostly “tighten in place.”   |
-| Features     | HIGH       | Strongly anchored in `PROJECT.md`, OWASP guidance, and explicit milestone boundary decisions.                                            |
-| Architecture | HIGH       | Grounded in current OpenCode middleware, ALS, session, user, and usage code paths; recommendations are incremental and brownfield-aware. |
-| Pitfalls     | HIGH       | Backed by OWASP authorization guidance, SQLite lifecycle constraints, webhook consistency realities, and known brownfield failure modes. |
+| Area         | Confidence | Notes                                                                                |
+| ------------ | ---------- | ------------------------------------------------------------------------------------ |
+| Stack        | HIGH       | Direct codebase inspection, all infrastructure exists                                |
+| Features     | HIGH       | HTTP standards well-documented, existing resolve() function validated                |
+| Architecture | HIGH       | Middleware chain analyzed, integration points identified                             |
+| Pitfalls     | HIGH       | OWASP guidance, brownfield migration patterns, webhook consistency issues documented |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Anonymous legacy policy:** decide whether legacy null-owned rows remain visible by default or only under explicit deployment mode; document and test migration semantics.
-- **Deleted-user reporting model:** decide whether internal audit access needs a separate admin-only endpoint while public/user-facing usage routes fail closed.
-- **Upstream sync contract:** define whether this service receives admin calls, signed webhooks, or both, and how duplicate/out-of-order events are handled.
-- **Message/part integrity shape:** validate the exact Drizzle/SQLite schema design for tying `part` to the correct `message` and `session` path without unnecessary denormalization.
-- **Route inventory cleanup:** confirm all signup/onboarding semantics are removed from routes, docs, and any dependent frontend affordances.
+- **Performance at scale:** API key verification uses bcrypt + table scan. Acceptable for <100 users, may need caching at 1k+ users. Monitor performance after deployment, add in-memory cache with TTL if needed.
+
+- **Migration strategy for production:** Research assumes ability to run migration before code deployment. Validate deployment sequence with ops team: can we run migration, verify success, then deploy code? Or do we need blue-green deployment?
+
+- **Health check route inventory:** Research identified /health, /metrics, /ready, /log as internal routes. Verify complete list of infrastructure endpoints that should bypass user auth during Phase 2 implementation.
 
 ## Sources
 
 ### Primary (HIGH confidence)
 
-- OpenCode project context: `.planning/PROJECT.md` — milestone scope, constraints, out-of-scope decisions.
-- Existing OpenCode code paths: `packages/opencode/src/server/server.ts`, `server/user-auth.ts`, `server/routes/session.ts`, `server/routes/user.ts`, `session/index.ts`, `session/message-v2.ts`, `session/processor.ts`, `user/index.ts`, `user/user.sql.ts`, `user/usage.ts`, `storage/db.ts`.
-- Hono docs — middleware, request context, and typed guards: https://hono.dev/docs/guides/middleware and https://hono.dev/docs/api/context
-- Drizzle docs — SQLite indexes, constraints, foreign keys: https://orm.drizzle.team/docs/indexes-constraints
-- SQLite foreign key docs — connection enforcement and child-key indexing: https://www.sqlite.org/foreignkeys.html
-- OWASP Authorization Cheat Sheet — deny-by-default and object-level authorization: https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html
-- OWASP API Security Top 10, API1 BOLA — per-object checks for all client-supplied IDs: https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/
-- OWASP Multi-Tenant Security Cheat Sheet — tenant context propagation and offboarding patterns: https://cheatsheetseries.owasp.org/cheatsheets/Multi_Tenant_Security_Cheat_Sheet.html
+- Direct codebase inspection — src/user/user-context.ts, src/server/user-auth.ts, src/user/user.sql.ts, src/server/server.ts, src/session/index.ts
+- Migration files — 20260317110427_add_session_user_id, 20260317144535_identity_foundation
+- .planning/PROJECT.md — Requirements and v1.2 milestone goals
+- MDN HTTP 401 Unauthorized — https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401
+- MDN HTTP 403 Forbidden — https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
 
 ### Secondary (MEDIUM confidence)
 
-- AWS SaaS Lens, Tenant Isolation — isolation as foundational shared-infra concern: https://docs.aws.amazon.com/wellarchitected/latest/saas-lens/tenant-isolation.html
-- WorkOS AuthKit overview — common split between identity lifecycle UX and product-service authz: https://workos.com/docs/user-management/overview
-- WorkOS Directory Sync overview — upstream provisioning/deprovisioning as separate concern: https://workos.com/docs/directory-sync/overview
-- Clerk webhook sync guidance — eventual consistency and retry/replay expectations: https://clerk.com/docs/webhooks/sync-data
-
-### Tertiary (LOW confidence)
-
-- None. Remaining uncertainty is about local product decisions, not weak external sourcing.
+- OWASP Authorization Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html
+- OWASP API Security Top 10 2023, API1 Broken Object Level Authorization — https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/
+- OWASP Multi-Tenant Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/Multi_Tenant_Security_Cheat_Sheet.html
+- SQLite Foreign Key Support — https://www.sqlite.org/foreignkeys.html
+- Clerk webhook sync documentation — https://clerk.com/docs/webhooks/sync-data
 
 ---
 

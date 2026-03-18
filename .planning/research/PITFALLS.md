@@ -1,87 +1,143 @@
 # Pitfalls Research
 
-**Domain:** Brownfield multi-user isolation hardening with externalized user lifecycle
+**Domain:** Removing anonymous access and enforcing mandatory authentication (v1.2)
 **Researched:** 2026-03-18
 **Confidence:** HIGH
 
 ## Critical Pitfalls
 
-### Pitfall 1: Ownership checks stop at sessions, not session-derived resources
+### Pitfall 1: Orphaned Sessions from Anonymous Users
 
 **What goes wrong:**
-The service correctly filters `session` reads by `user_id`, but message, part, fork, share, event, or usage-detail routes still trust `session_id` or `message_id` alone. Isolation looks complete in happy-path testing while object-level authorization is still broken underneath.
+Existing sessions created by anonymous users (user_id = NULL) become inaccessible after mandatory auth is enforced. Users lose access to their work, and the system has orphaned data that can't be queried or cleaned up properly.
 
 **Why it happens:**
-This is a brownfield retrofit. Teams patch the obvious top-level table first, but derived resources already have their own handlers, joins, and lookup helpers. OWASP explicitly calls out object-level authorization gaps when every function using client-supplied IDs is not checked.
+The SessionTable currently has nullable user_id (backward compatible design from v1.0/v1.1). When anonymous fallback is removed, queries filtering by user_id will exclude NULL rows. Developers forget that production databases contain pre-migration anonymous sessions.
 
 **How to avoid:**
 
-- Make ownership resolution flow through one server-side gate: resolve resource → resolve owning session → resolve owning user.
-- Require every message/part/fork/share lookup to join back to the owning session and user context.
-- Add a negative test matrix for every route that accepts session-derived IDs.
-- Deny by default when ownership cannot be proven.
+1. **Data migration required:** Before removing anonymous fallback, migrate all NULL user_id sessions to a designated owner (e.g., system user, admin user, or delete them)
+2. **Make user_id NOT NULL:** After migration, alter SessionTable schema to make user_id required
+3. **Deployment sequence:** Migration script → schema change → code deployment (never reverse this order)
 
 **Warning signs:**
 
-- Message and part handlers fetch by primary key without a user predicate.
-- Some routes return `404`, others `403`, and others succeed for the same unauthorized probe.
-- Tests cover session list/get but not message, part, fork, or share endpoints.
+- SessionTable.user_id is nullable in schema
+- No migration script in `.planning/` or `migration/` folder
+- Tests don't verify user_id is always present
+- Session queries return empty results after deployment despite data existing
 
 **Phase to address:**
-Phase 1 — End-to-end ownership enforcement for session-derived resources
+Phase 1 (Data Migration) — Must happen before code changes
 
 ---
 
-### Pitfall 2: “Anonymous compatibility” quietly becomes an authorization bypass
+### Pitfall 2: Health Check and Internal Routes Blocked
 
 **What goes wrong:**
-To preserve no-auth or legacy behavior, brownfield code keeps nullable `user_id` and fallback paths. New ownership logic then treats missing user context as valid access to null-owned or legacy rows, widening access instead of preserving compatibility safely.
+Health checks, metrics endpoints, internal monitoring, and admin routes start failing with 401 Unauthorized. Kubernetes liveness probes fail, monitoring alerts fire, deployment rollbacks trigger automatically.
 
 **Why it happens:**
-Backward compatibility is real, but nullable ownership turns “unknown owner” into “public owner” unless the policy is explicit. In an existing system, historical rows often predate current rules.
+Middleware applies authentication globally to all routes. Developers forget that infrastructure endpoints (health, metrics, readiness) and admin APIs need different auth strategies. The `/log` endpoint already has special handling (line 89 in server.ts), but other internal routes don't.
 
 **How to avoid:**
 
-- Define anonymous access as a policy, not a fallback accident.
-- Separate legacy rows from intentionally anonymous rows.
-- Make unauthenticated behavior opt-in and explicit for deployments that still need it.
-- Add migration-time backfill or a sentinel ownership state instead of leaving semantics ambiguous.
+1. **Whitelist internal routes:** Skip user auth for `/health`, `/metrics`, `/ready`, `/log`
+2. **Separate admin auth:** Admin routes use OPENCODE_SERVER_PASSWORD (existing basicAuth), not user API keys
+3. **Document auth boundaries:** Clear separation between user API (requires API key) and admin API (requires server password)
+4. **Test infrastructure:** Verify health checks work without API key in CI
 
 **Warning signs:**
 
-- Queries use `user_id IS NULL` as a convenience branch with no deployment guard.
-- Post-migration behavior for old rows is undocumented.
-- Unauthorized probes succeed only when auth headers are omitted.
+- Health check endpoint requires authentication
+- Monitoring dashboards show service as down after deployment
+- Admin operations require user API keys
+- No route whitelist or auth bypass logic in middleware
 
 **Phase to address:**
-Phase 1 — End-to-end ownership enforcement for session-derived resources
+Phase 2 (Middleware Implementation) — Auth middleware must handle route exemptions
 
 ---
 
-### Pitfall 3: Deleted or invalid users become dangling identities with live data paths
+### Pitfall 3: Middleware Ordering Breaks Authentication
 
 **What goes wrong:**
-User deletion or invalidation removes the current account record but leaves sessions, usage rows, API keys, cached identity snapshots, or reports still addressable. `/user/:id/usage` and related reporting endpoints can then expose historical data for identities that should no longer be queryable through this service.
+User authentication middleware runs after Instance/Workspace context setup, causing UserContext.get() to return anonymous even with valid API keys. Or it runs before CORS, breaking browser clients. Routes receive wrong user identity.
 
 **Why it happens:**
-SQLite foreign keys do not save you unless they are enabled and modeled correctly, and brownfield services often have partial references only. Teams also mix “delete user,” “revoke auth,” and “hide user from API” into one unclear state transition.
+Hono middleware executes in registration order. The existing server.ts has: CORS → basicAuth (server password) → logging → WorkspaceRouterMiddleware. Inserting user auth in the wrong position breaks the chain. UserContext must be available when Instance is created, but Instance needs workspace_id from headers.
 
 **How to avoid:**
 
-- Pick one lifecycle contract: active, disabled, deleted, or tombstoned.
-- Gate usage/report endpoints on current lifecycle state, not just row existence.
-- Revoke keys before lifecycle transition is finalized.
-- Use explicit referential strategy for sessions and usage: keep historical accounting with tombstones, not orphaned free-form IDs.
-- Verify SQLite foreign key enforcement is actually enabled per connection if relying on it.
+1. **Correct order:** CORS → basicAuth (server password) → user auth → logging → workspace routing → instance setup
+2. **Test middleware chain:** Verify UserContext.authenticated returns true in route handlers
+3. **Document dependencies:** User auth needs raw headers, must run before Instance.provide
+4. **Integration test:** Full request flow from auth header to route handler
 
 **Warning signs:**
 
-- Usage tables reference raw user IDs with no validated parent state.
-- Deleted users disappear from admin CRUD but still appear in reporting queries.
-- Different code paths disagree on whether deleted means hidden, revoked, or purged.
+- UserContext.get() returns anonymous despite valid API key
+- Tests pass but manual testing fails
+- Middleware added at end of chain instead of specific position
+- No integration test covering full middleware stack
 
 **Phase to address:**
-Phase 2 — Identity lifecycle boundary hardening
+Phase 2 (Middleware Implementation) — Middleware must be inserted at correct position
+
+---
+
+### Pitfall 4: Missing 401 Response for Invalid Keys
+
+**What goes wrong:**
+Requests with invalid/missing API keys receive 200 OK with empty data instead of 401 Unauthorized. Clients can't distinguish between "no data" and "not authenticated". Silent failures make debugging impossible.
+
+**Why it happens:**
+Current implementation (user-auth.ts) returns `{ state: "anonymous", reason: "invalid" }` but doesn't reject the request. Routes check UserContext.authenticated but may not enforce it consistently. Some routes allow anonymous access (backward compatibility), creating inconsistent behavior.
+
+**How to avoid:**
+
+1. **Fail fast in middleware:** If UserContext.get().state === "anonymous", return 401 immediately (except whitelisted routes)
+2. **Consistent error format:** Use standard error response with clear message: "API key required" or "Invalid API key"
+3. **Remove conditional checks:** Delete all `if (UserContext.authenticated)` branches in route handlers — auth is now mandatory
+4. **Client-friendly errors:** Include `WWW-Authenticate: Bearer` header for proper HTTP semantics
+
+**Warning signs:**
+
+- Routes return empty arrays instead of 401
+- Client logs show "no sessions found" instead of auth errors
+- Conditional authentication checks scattered across route handlers
+- No middleware that rejects anonymous requests
+
+**Phase to address:**
+Phase 2 (Middleware Implementation) — Middleware must enforce authentication
+
+---
+
+### Pitfall 5: Forgotten Anonymous Code Paths
+
+**What goes wrong:**
+Code still handles anonymous users even after mandatory auth is enforced. Dead code paths remain, creating confusion and potential security holes. Tests for anonymous behavior still pass, masking the fact that those paths are unreachable.
+
+**Why it happens:**
+Anonymous support was deeply integrated (UserContext.get() defaults to anonymous, resolve() returns anonymous on failure, tests verify anonymous behavior). Developers remove the middleware check but forget to clean up the type system, helper functions, and test cases.
+
+**How to avoid:**
+
+1. **Type system change:** Remove Anonymous from Identity union, make Identity = Authenticated only
+2. **Delete anonymous tests:** Remove all tests in user-context.test.ts that verify anonymous behavior
+3. **Simplify UserContext:** Remove fallback logic, make UserContext.get() throw if not authenticated
+4. **Grep for "anonymous":** Find and remove all anonymous handling code
+5. **Update resolve():** Make it throw instead of returning anonymous state
+
+**Warning signs:**
+
+- Identity type still includes Anonymous variant
+- UserContext.get() has try/catch returning anonymous
+- Tests verify anonymous behavior
+- resolve() function returns anonymous state instead of throwing
+
+**Phase to address:**
+Phase 3 (Cleanup) — Remove anonymous support from type system and code
 
 ---
 
