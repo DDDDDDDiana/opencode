@@ -6,14 +6,7 @@ export type Authenticated = {
   user_id: UserID
 }
 
-export type Anonymous = {
-  state: "anonymous"
-  reason: "missing" | "invalid"
-}
-
-export type Identity = Authenticated | Anonymous
-
-const ANONYMOUS_MISSING: Anonymous = { state: "anonymous", reason: "missing" }
+export type Identity = Authenticated
 
 const ctx = Context.create<Identity>("user")
 
@@ -23,19 +16,10 @@ export const UserContext = {
   },
 
   get(): Identity {
-    try {
-      return ctx.use()
-    } catch {
-      return ANONYMOUS_MISSING
-    }
+    return ctx.use()
   },
 
-  get userID(): UserID | undefined {
-    const id = UserContext.get()
-    return id.state === "authenticated" ? id.user_id : undefined
-  },
-
-  get authenticated(): boolean {
-    return UserContext.get().state === "authenticated"
+  get userID(): UserID {
+    return UserContext.get().user_id
   },
 }
