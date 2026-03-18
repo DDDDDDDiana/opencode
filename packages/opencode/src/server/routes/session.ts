@@ -701,6 +701,7 @@ export const SessionRoutes = lazy(() => {
       ),
       async (c) => {
         const params = c.req.valid("param")
+        await guard(params.sessionID)
         SessionPrompt.assertNotBusy(params.sessionID)
         await Session.removeMessage({
           sessionID: params.sessionID,
@@ -736,6 +737,7 @@ export const SessionRoutes = lazy(() => {
       ),
       async (c) => {
         const params = c.req.valid("param")
+        await guard(params.sessionID)
         await Session.removePart({
           sessionID: params.sessionID,
           messageID: params.messageID,
@@ -778,6 +780,7 @@ export const SessionRoutes = lazy(() => {
             `Part mismatch: body.id='${body.id}' vs partID='${params.partID}', body.messageID='${body.messageID}' vs messageID='${params.messageID}', body.sessionID='${body.sessionID}' vs sessionID='${params.sessionID}'`,
           )
         }
+        await guard(params.sessionID)
         const part = await Session.updatePart(body)
         return c.json(part)
       },
