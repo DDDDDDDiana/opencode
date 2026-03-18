@@ -1,37 +1,37 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-current_phase: 07
+milestone: v1.2
+milestone_name: 禁止匿名模式
+current_phase: Not started
 current_plan: Not started
-status: completed
-last_updated: "2026-03-18T03:44:55.656Z"
-last_activity: 2026-03-18 - Completed Phase 6 Plan 02 - Usage accounting preservation tests
+status: defining requirements
+last_updated: "2026-03-18T05:27:53.325Z"
+last_activity: 2026-03-18 - Milestone v1.2 started
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State: OpenCode Multi-User Isolation
 
 **Last Updated:** 2026-03-18  
-**Current Phase:** 07
-**Current Plan:** Not started
+**Current Phase:** Not started (defining requirements)
+**Current Plan:** —
 
 ## Project Reference
 
 **Core Value:** Each user's sessions, messages, and agent interactions are completely isolated from other users — no data leakage, no shared state.
 
-**Current Focus:** `v1.1` is ready for planning around ownership closure, boundary cleanup, preserved accounting, and restored validation evidence
+**Current Focus:** v1.2 — Require API key authentication for all requests, remove anonymous fallback
 
 ## Current Position
 
-**Phase:** Phase 6 - Service Boundary and Accounting Preservation  
-**Plan:** 02 (completed)  
-**Status:** Milestone complete
-**Last activity:** 2026-03-18 - Completed Phase 6 Plan 02 - Usage accounting preservation tests
+**Phase:** Not started (defining requirements)  
+**Plan:** —  
+**Status:** Defining requirements
+**Last activity:** 2026-03-18 — Milestone v1.2 started
 
 ## Accumulated Context
 
