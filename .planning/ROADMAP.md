@@ -44,7 +44,12 @@
 1. User can query all existing sessions without encountering NULL user_id
 2. Database schema rejects attempts to create sessions without user_id
 3. Migration completes without data loss or orphaned sessions
-   **Plans**: TBD
+
+**Plans**: 1 plan
+
+Plans:
+
+- [ ] 08-01-PLAN.md — Update SessionTable schema and generate migration for NOT NULL constraint
 
 ### Phase 9: Authentication Enforcement
 
