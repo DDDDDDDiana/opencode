@@ -22,8 +22,12 @@ import { lazy } from "../../util/lazy"
 
 const log = Log.create({ service: "server" })
 
-export const SessionRoutes = lazy(() =>
-  new Hono()
+export const SessionRoutes = lazy(() => {
+  const guard = async (sessionID: SessionID) => {
+    await Session.get(sessionID)
+  }
+
+  return new Hono()
     .get(
       "/",
       describeRoute({
@@ -602,14 +606,13 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         const query = c.req.valid("query")
         const sessionID = c.req.valid("param").sessionID
+        await guard(sessionID)
         if (query.limit === undefined) {
-          await Session.get(sessionID)
           const messages = await Session.messages({ sessionID })
           return c.json(messages)
         }
 
         if (query.limit === 0) {
-          await Session.get(sessionID)
           const messages = await Session.messages({ sessionID })
           return c.json(messages)
         }
@@ -662,6 +665,7 @@ export const SessionRoutes = lazy(() =>
       ),
       async (c) => {
         const params = c.req.valid("param")
+        await guard(params.sessionID)
         const message = await MessageV2.get({
           sessionID: params.sessionID,
           messageID: params.messageID,
@@ -1019,5 +1023,5 @@ export const SessionRoutes = lazy(() =>
         })
         return c.json(true)
       },
-    ),
-)
+    )
+})
