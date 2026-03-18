@@ -9,8 +9,8 @@ Requirements for milestone `v1.1`. Each maps to exactly one roadmap phase.
 
 ### Session Isolation
 
-- [ ] **SESS-07**: User can read messages only when the parent session belongs to that user
-- [ ] **SESS-08**: User can read parts only when the parent session belongs to that user
+- [x] **SESS-07**: User can read messages only when the parent session belongs to that user
+- [x] **SESS-08**: User can read parts only when the parent session belongs to that user
 - [ ] **SESS-09**: User-facing session-derived routes use one shared ownership guard before loading protected data
 
 ### Service Boundary
@@ -62,8 +62,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase   | Status  |
 | ----------- | ------- | ------- |
-| SESS-07     | Phase 5 | Pending |
-| SESS-08     | Phase 5 | Pending |
+| SESS-07     | Phase 5 | Complete |
+| SESS-08     | Phase 5 | Complete |
 | SESS-09     | Phase 5 | Pending |
 | BNDR-01     | Phase 6 | Pending |
 | BNDR-02     | Phase 6 | Pending |

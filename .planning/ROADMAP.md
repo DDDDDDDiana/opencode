@@ -19,7 +19,7 @@
 
 | Phase                                           | Plans Complete | Status      | Completed |
 | ----------------------------------------------- | -------------- | ----------- | --------- |
-| 5. Session-Derived Ownership Closure            | 0/TBD          | Not started | -         |
+| 5. Session-Derived Ownership Closure            | 0/2            | Not started | -         |
 | 6. Service Boundary and Accounting Preservation | 0/TBD          | Not started | -         |
 | 7. Validation Evidence Restoration              | 0/TBD          | Not started | -         |
 
@@ -37,7 +37,12 @@
 3. Session-derived routes consistently deny cross-user access before protected message or part data is loaded.
 4. Session-derived reads continue to behave correctly for legacy anonymous ownership cases without exposing another user's data.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+
+- [ ] `05-01-PLAN.md` — Add one shared session-root ownership guard to all session-derived message read routes.
+- [ ] `05-02-PLAN.md` — Extend the shared guard to message/part mutations and add ownership regressions.
 
 ### Phase 6: Service Boundary and Accounting Preservation
 
