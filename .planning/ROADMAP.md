@@ -26,9 +26,57 @@
 
 </details>
 
+### 🚧 v1.2 禁止匿名模式 (Phases 8-10) — IN PROGRESS
+
+- [ ] **Phase 8: Data Migration** - Prepare database for mandatory authentication
+- [ ] **Phase 9: Authentication Enforcement** - Reject unauthenticated requests
+- [ ] **Phase 10: Code Cleanup** - Remove anonymous code paths
+
+## Phase Details
+
+### Phase 8: Data Migration
+
+**Goal**: All sessions have valid user_id, schema enforces NOT NULL constraint
+**Depends on**: Nothing (first phase of v1.2)
+**Requirements**: MIGR-01, MIGR-02
+**Success Criteria** (what must be TRUE):
+
+1. User can query all existing sessions without encountering NULL user_id
+2. Database schema rejects attempts to create sessions without user_id
+3. Migration completes without data loss or orphaned sessions
+   **Plans**: TBD
+
+### Phase 9: Authentication Enforcement
+
+**Goal**: All requests require valid API key, admin auth preserved separately
+**Depends on**: Phase 8
+**Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04
+**Success Criteria** (what must be TRUE):
+
+1. User receives 401 Unauthorized when sending request without API key
+2. User receives 401 Unauthorized when sending request with invalid API key
+3. User with valid API key can access their sessions normally
+4. Admin can authenticate with OPENCODE_SERVER_PASSWORD independently of user API keys
+   **Plans**: TBD
+
+### Phase 10: Code Cleanup
+
+**Goal**: Anonymous code paths removed, type system hardened
+**Depends on**: Phase 9
+**Requirements**: CLEAN-01, CLEAN-02, CLEAN-03
+**Success Criteria** (what must be TRUE):
+
+1. TypeScript compiler rejects code attempting to handle anonymous identity
+2. Codebase contains no references to anonymous fallback logic
+   **Plans**: TBD
+
 ## Progress
 
-All phases complete. See `.planning/MILESTONES.md` for shipped versions.
+| Phase                         | Plans Complete | Status      | Completed |
+| ----------------------------- | -------------- | ----------- | --------- |
+| 8. Data Migration             | 0/0            | Not started | -         |
+| 9. Authentication Enforcement | 0/0            | Not started | -         |
+| 10. Code Cleanup              | 0/0            | Not started | -         |
 
 ---
 

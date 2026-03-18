@@ -56,21 +56,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status  |
 | ----------- | ----- | ------- |
-| MIGR-01     | TBD   | Pending |
-| MIGR-02     | TBD   | Pending |
-| AUTH-01     | TBD   | Pending |
-| AUTH-02     | TBD   | Pending |
-| AUTH-03     | TBD   | Pending |
-| AUTH-04     | TBD   | Pending |
-| CLEAN-01    | TBD   | Pending |
-| CLEAN-02    | TBD   | Pending |
-| CLEAN-03    | TBD   | Pending |
+| MIGR-01     | 8     | Pending |
+| MIGR-02     | 8     | Pending |
+| AUTH-01     | 9     | Pending |
+| AUTH-02     | 9     | Pending |
+| AUTH-03     | 9     | Pending |
+| AUTH-04     | 9     | Pending |
+| CLEAN-01    | 10    | Pending |
+| CLEAN-02    | 10    | Pending |
+| CLEAN-03    | 10    | Pending |
 
 **Coverage:**
 
 - v1 requirements: 9 total
-- Mapped to phases: 0
-- Unmapped: 9 ⚠️
+- Mapped to phases: 9
+- Unmapped: 0 ✓
 
 ---
 

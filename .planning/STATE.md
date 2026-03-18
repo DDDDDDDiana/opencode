@@ -2,23 +2,23 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: 禁止匿名模式
-current_phase: Not started
+current_phase: 8
 current_plan: Not started
-status: defining requirements
-last_updated: "2026-03-18T05:27:53.325Z"
-last_activity: 2026-03-18 - Milestone v1.2 started
+status: roadmap complete
+last_updated: "2026-03-18T06:10:43.473Z"
+last_activity: 2026-03-18 - Roadmap created for v1.2
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
 ---
 
-# Project State: OpenCode Multi-User Isolation
+# Project State: OpenCode Multi-User Isolation v1.2
 
 **Last Updated:** 2026-03-18  
-**Current Phase:** Not started (defining requirements)
-**Current Plan:** —
+**Current Phase:** 8 - Data Migration
+**Current Plan:** Not started
 
 ## Project Reference
 
@@ -28,10 +28,11 @@ progress:
 
 ## Current Position
 
-**Phase:** Not started (defining requirements)  
-**Plan:** —  
-**Status:** Defining requirements
-**Last activity:** 2026-03-18 — Milestone v1.2 started
+**Phase:** 8 - Data Migration  
+**Plan:** Not started  
+**Status:** Roadmap complete, ready for execution
+**Progress:** `[░░░░░░░░░░] 0%` (0/3 phases complete)
+**Last activity:** 2026-03-18 — Roadmap created for v1.2
 
 ## Accumulated Context
 
@@ -63,23 +64,33 @@ progress:
 | Use 'Admin:' prefix in user route descriptions     | Makes admin-facing nature explicit in OpenAPI docs        | 2026-03-18 |
 | Position POST /user as provisioning                | Clarifies local projection vs registration responsibility | 2026-03-18 |
 | Document registration as external in README        | Establishes clear service boundary for user lifecycle     | 2026-03-18 |
+| Remove anonymous fallback in v1.2                  | Simplifies security model, enforces isolation             | 2026-03-18 |
+| Migration before code deployment                   | Prevents orphaned data with NULL user_id                  | 2026-03-18 |
+| Admin auth separate from user auth                 | OPENCODE_SERVER_PASSWORD independent of API keys          | 2026-03-18 |
 
 ### Active TODOs
 
-- [ ] Continue with Phase 6 and Phase 7 from `v1.1` roadmap
-- [ ] Generate `v1.1` validation artifacts that prove ownership enforcement and retained accounting
+- [ ] Create migration script for NULL user_id sessions (Phase 8)
+- [ ] Alter SessionTable.user_id to NOT NULL (Phase 8)
+- [ ] Add auth middleware after CORS in server.ts (Phase 9)
+- [ ] Remove Anonymous from Identity union (Phase 10)
+- [ ] Delete anonymous tests and fallback logic (Phase 10)
 
 ### Known Blockers
 
-- No phase `*-VALIDATION.md` files are present for `v1.0`
+None currently.
 
 ### Deferred Context
 
-- Deleted-user usage fail-closed remains out of scope for `v1.1`; tracked in deferred requirements and not part of phases 5-7
-- Upstream sync contract, disable/revoke flows, telemetry, exports, and signup/onboarding UX remain explicitly out of scope for this roadmap
+- Rate limiting per IP for failed auth attempts (v2)
+- Audit log for rejected authentication attempts (v2)
+- Webhook notifications for authentication failures (v2)
+- In-memory cache for API key verification (v2)
 
 ### Recent Changes
 
+- 2026-03-18: Created v1.2 roadmap with 3 phases (8-10) covering 9 requirements
+- 2026-03-18: v1.1 shipped (phases 5-7)
 - 2026-03-18: Completed Phase 6 Plan 02 - Usage accounting preservation tests
 - 2026-03-18: Completed Phase 6 Plan 01 - Service boundary and admin API clarity
 - 2026-03-18: Completed Phase 5 Plan 02 - Message and part mutation ownership guard
@@ -104,14 +115,16 @@ progress:
 
 ## Session Continuity
 
-**Next Action:** Continue with Phase 7 planning.
+**Next Action:** Execute `/gsd-plan-phase 8` to create execution plan for Data Migration phase.
 
 **Context for Next Session:**
 
-- `v1.0` is archived and tagged after commit
-- `v1.1` roadmap is in place with phases 5-7
-- In-scope work is limited to ownership closure, preserved usage accounting, externalized registration responsibility, and validation evidence restoration
-- Deleted-user fail-closed and other lifecycle hardening work remain deferred beyond this roadmap
+- v1.2 roadmap complete with 3 phases (8-10)
+- All authentication infrastructure exists from v1.0/v1.1
+- This milestone is surgical: ~20 lines of code across 3 files
+- Key risk: orphaned sessions with NULL user_id (addressed in Phase 8)
+- Research confidence: HIGH (all patterns standard, no additional research needed)
+- Phase 8 must complete before Phase 9 to prevent data loss
 
 ---
 
