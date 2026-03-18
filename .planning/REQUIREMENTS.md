@@ -20,8 +20,8 @@ Requirements for milestone `v1.1`. Each maps to exactly one roadmap phase.
 
 ### Usage Accounting
 
-- [ ] **USAGE-05**: User-scoped token and usage accounting continues to work after boundary cleanup
-- [ ] **USAGE-06**: Quota enforcement continues to use persisted per-user usage totals after boundary cleanup
+- [x] **USAGE-05**: User-scoped token and usage accounting continues to work after boundary cleanup
+- [x] **USAGE-06**: Quota enforcement continues to use persisted per-user usage totals after boundary cleanup
 
 ### Validation Evidence
 
@@ -67,8 +67,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SESS-09     | Phase 5 | Pending |
 | BNDR-01     | Phase 6 | Complete |
 | BNDR-02     | Phase 6 | Complete |
-| USAGE-05    | Phase 6 | Pending |
-| USAGE-06    | Phase 6 | Pending |
+| USAGE-05    | Phase 6 | Complete |
+| USAGE-06    | Phase 6 | Complete |
 | EVID-01     | Phase 7 | Pending |
 
 **Coverage:**

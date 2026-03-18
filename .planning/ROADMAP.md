@@ -12,7 +12,7 @@
 ## Phases
 
 - [x] **Phase 5: Session-Derived Ownership Closure** - Close the remaining message and part ownership gap through one shared session-root guard.
-- [ ] **Phase 6: Service Boundary and Accounting Preservation** - Keep registration outside this service while preserving the local user projection, usage totals, and quota enforcement.
+- [x] **Phase 6: Service Boundary and Accounting Preservation** - Keep registration outside this service while preserving the local user projection, usage totals, and quota enforcement. (completed 2026-03-18)
 - [ ] **Phase 7: Validation Evidence Restoration** - Restore milestone proof that ownership enforcement and retained accounting both work in `v1.1`.
 
 ## Progress
@@ -20,7 +20,7 @@
 | Phase                                           | Plans Complete | Status      | Completed  |
 | ----------------------------------------------- | -------------- | ----------- | ---------- |
 | 5. Session-Derived Ownership Closure            | 2/2            | Complete    | 2026-03-18 |
-| 6. Service Boundary and Accounting Preservation | 0/2            | Not started | -          |
+| 6. Service Boundary and Accounting Preservation | 2/2 | Complete   | 2026-03-18 |
 | 7. Validation Evidence Restoration              | 0/TBD          | Not started | -          |
 
 ## Phase Details
