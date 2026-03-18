@@ -1,83 +1,78 @@
-# Requirements: OpenCode Multi-User Isolation
+# Requirements: OpenCode Multi-User Isolation v1.2
 
 **Defined:** 2026-03-18
 **Core Value:** Each user's sessions, messages, and agent interactions are completely isolated from other users — no data leakage, no shared state.
 
 ## v1 Requirements
 
-Requirements for milestone `v1.1`. Each maps to exactly one roadmap phase.
+### Data Migration
 
-### Session Isolation
+- [ ] **MIGR-01**: Existing sessions with NULL user_id are migrated (assigned to system user or deleted)
+- [ ] **MIGR-02**: SessionTable.user_id column altered to NOT NULL constraint
 
-- [x] **SESS-07**: User can read messages only when the parent session belongs to that user
-- [x] **SESS-08**: User can read parts only when the parent session belongs to that user
-- [x] **SESS-09**: User-facing session-derived routes use one shared ownership guard before loading protected data
+### Authentication Enforcement
 
-### Service Boundary
+- [ ] **AUTH-01**: Middleware rejects requests without valid API key with 401 Unauthorized
+- [ ] **AUTH-02**: 401 responses include WWW-Authenticate header per HTTP spec
+- [ ] **AUTH-03**: Admin auth (OPENCODE_SERVER_PASSWORD/USERNAME) preserved separate from user API key auth
+- [ ] **AUTH-04**: Both authentication systems coexist without conflict
 
-- [x] **BNDR-01**: Admin can manage the local user projection needed for isolation and quotas without exposing signup or onboarding flows from this service
-- [x] **BNDR-02**: Service API and planning docs describe registration as external to this project
+### Code Cleanup
 
-### Usage Accounting
-
-- [x] **USAGE-05**: User-scoped token and usage accounting continues to work after boundary cleanup
-- [x] **USAGE-06**: Quota enforcement continues to use persisted per-user usage totals after boundary cleanup
-
-### Validation Evidence
-
-- [x] **EVID-01**: Maintainer can review milestone validation artifacts that prove ownership enforcement and retained usage accounting for `v1.1`
+- [ ] **CLEAN-01**: Anonymous type removed from Identity union
+- [ ] **CLEAN-02**: Anonymous fallback logic removed from UserContext
+- [ ] **CLEAN-03**: Anonymous-related tests deleted
 
 ## v2 Requirements
 
-Deferred from `v1.1`. Tracked, but not included in this roadmap.
+### Performance
 
-### Lifecycle
+- **PERF-01**: In-memory cache for API key verification (bcrypt + table scan acceptable for <100 users)
+- **PERF-02**: Rate limiting per IP for failed authentication attempts
 
-- **LIFE-01**: Deleted or disabled users are uniformly fail-closed across user-facing reads
-- **LIFE-02**: This service accepts an explicit upstream provision, update, and deactivate sync contract
+### Observability
 
-### Usage Semantics
+- **OBS-01**: Audit log for rejected authentication attempts
+- **OBS-02**: Webhook notifications for authentication failures
 
-- **USAGE-07**: `/user/:id/usage` semantics are tightened for deleted or invalid users
+### Infrastructure
 
-### Operations
-
-- **OPER-01**: Admin can export scoped usage breakdowns by time window, model, or session
-- **OPER-02**: Admin can disable access or revoke keys without deleting historical accounting
-- **OPER-03**: Maintainer can inspect isolation telemetry for denied cross-user access attempts
+- **INFRA-01**: Health check route inventory documented (/health, /metrics, /ready, /log)
+- **INFRA-02**: Blue-green deployment strategy for migration + code deployment sequence
 
 ## Out of Scope
 
-| Feature                                           | Reason                                                                |
-| ------------------------------------------------- | --------------------------------------------------------------------- |
-| Signup and registration UX                        | Owned by the frontend and another service, not this isolation service |
-| Onboarding flows                                  | Product activation belongs outside this backend                       |
-| Password reset, email verification, and MFA flows | Identity assurance is outside the `v1.1` boundary                     |
-| Rich profile management                           | Not required to enforce isolation or quota/accounting rules           |
-| Billing, invoicing, or external monetization      | Large scope jump unrelated to this milestone's isolation focus        |
+| Feature                            | Reason                                                   |
+| ---------------------------------- | -------------------------------------------------------- |
+| Internal route whitelisting        | Research identified need but user selected minimal scope |
+| WWW-Authenticate header            | HTTP spec requirement but user selected minimal scope    |
+| user_id filters on session queries | Already implemented in v1.0/v1.1                         |
+| Anonymous test deletion            | User selected only type removal                          |
+| UserContext fallback removal       | User selected only type removal                          |
 
 ## Traceability
 
 Which phases cover which requirements. Updated during roadmap creation.
 
-| Requirement | Phase   | Status   |
-| ----------- | ------- | -------- |
-| SESS-07     | Phase 5 | Complete |
-| SESS-08     | Phase 5 | Complete |
-| SESS-09     | Phase 5 | Complete |
-| BNDR-01     | Phase 6 | Complete |
-| BNDR-02     | Phase 6 | Complete |
-| USAGE-05    | Phase 6 | Complete |
-| USAGE-06    | Phase 6 | Complete |
-| EVID-01     | Phase 7 | Complete |
+| Requirement | Phase | Status  |
+| ----------- | ----- | ------- |
+| MIGR-01     | TBD   | Pending |
+| MIGR-02     | TBD   | Pending |
+| AUTH-01     | TBD   | Pending |
+| AUTH-02     | TBD   | Pending |
+| AUTH-03     | TBD   | Pending |
+| AUTH-04     | TBD   | Pending |
+| CLEAN-01    | TBD   | Pending |
+| CLEAN-02    | TBD   | Pending |
+| CLEAN-03    | TBD   | Pending |
 
 **Coverage:**
 
-- v1 requirements: 8 total
-- Mapped to phases: 8
-- Unmapped: 0 ✓
+- v1 requirements: 9 total
+- Mapped to phases: 0
+- Unmapped: 9 ⚠️
 
 ---
 
 _Requirements defined: 2026-03-18_
-_Last updated: 2026-03-18 after `v1.1` roadmap creation_
+_Last updated: 2026-03-18 after initial definition_
