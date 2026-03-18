@@ -8,12 +8,12 @@ import type { UserID } from "../user/schema"
 const log = Log.create({ service: "user-auth" })
 const seen = new Map<string, number>()
 
-export async function resolve(key: string | undefined) {
-  if (!key) return { state: "anonymous" as const, reason: "missing" as const }
+export async function resolve(key: string | undefined): Promise<import("../user/user-context").Authenticated> {
+  if (!key) throw new Error("API key missing")
 
   if (!valid(key)) {
     throttle(key, "malformed")
-    return { state: "anonymous" as const, reason: "invalid" as const }
+    throw new Error("Invalid API key")
   }
 
   const rows = Database.use((db) => db.select().from(ApiKeyTable).all())
@@ -27,7 +27,7 @@ export async function resolve(key: string | undefined) {
   }
 
   throttle(key, "unknown")
-  return { state: "anonymous" as const, reason: "invalid" as const }
+  throw new Error("Unknown API key")
 }
 
 function throttle(key: string, reason: string) {
