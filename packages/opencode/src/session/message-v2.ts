@@ -956,6 +956,21 @@ export namespace MessageV2 {
           { cause: e },
         ).toObject()
       case e instanceof Error:
+        if (
+          e.name === "AI_JSONParseError" ||
+          e.message.includes("AI_JSONParseError") ||
+          e.message.includes("JSON parsing failed")
+        ) {
+          const body = (e as Error & { text?: unknown }).text
+          return new MessageV2.APIError(
+            {
+              message: e.toString(),
+              isRetryable: true,
+              responseBody: typeof body === "string" ? body : undefined,
+            },
+            { cause: e },
+          ).toObject()
+        }
         return new NamedError.Unknown({ message: e.toString() }, { cause: e }).toObject()
       default:
         try {

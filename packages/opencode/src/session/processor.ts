@@ -383,7 +383,7 @@ export namespace SessionProcessor {
                 error,
               })
             } else {
-              const retry = SessionRetry.retryable(error)
+              const retry = SessionRetry.retryable(error, attempt)
               if (retry !== undefined) {
                 attempt++
                 const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)

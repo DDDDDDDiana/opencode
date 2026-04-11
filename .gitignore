@@ -28,3 +28,12 @@ opencode-dev
 logs/
 *.bun-build
 tsconfig.tsbuildinfo
+bun.lock
+package.json
+.opencode/log.txt
+sessions/**
+packages/opencode/test/**
+tests/**
+packages/opencode/.retry-test.stderr.txt
+packages/opencode/.retry-test.stdout.txt
+packages/opencode/.typecheck.out.txt
