@@ -24,6 +24,7 @@ import { User } from "@/user"
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
   const log = Log.create({ service: "session.processor" })
+  const llog = Log.create({ service: "llm" })
 
   export type Info = Awaited<ReturnType<typeof create>>
   export type Result = Awaited<ReturnType<Info["process"]>>
@@ -52,6 +53,9 @@ export namespace SessionProcessor {
         needsCompaction = false
         const shouldBreak = (await Config.get()).experimental?.continue_loop_on_deny !== true
         while (true) {
+          let req: LLM.StreamOutput["req"] | undefined
+          let first: number | undefined
+          const turn = attempt + 1
           try {
             let currentText: MessageV2.TextPart | undefined
             let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
@@ -66,10 +70,37 @@ export namespace SessionProcessor {
                   throw new QuotaError({ kind: "daily_tokens", limit: user.quotaDailyTokens, current: used })
               }
             }
-            const stream = await LLM.stream(streamInput)
+            const args = {
+              ...streamInput,
+              assistantID: input.assistantMessage.id,
+              attempt: turn,
+            }
+            const stream = await LLM.stream(args)
+            req = stream.req
+            const entry = (id: string) =>
+              llog
+                .clone()
+                .tag("providerID", input.model.providerID)
+                .tag("modelID", input.model.id)
+                .tag("sessionID", input.sessionID)
+                .tag("assistantID", input.assistantMessage.id)
+                .tag("agent", args.agent.name)
+                .tag("mode", args.agent.mode)
+                .tag("requestID", id)
+            const l = entry(req.id)
 
             for await (const value of stream.fullStream) {
               input.abort.throwIfAborted()
+              if (!first) {
+                first = Date.now()
+                l.info("request", {
+                  phase: "first",
+                  attempt: turn,
+                  step: args.step,
+                  event: value.type,
+                  ttfbMs: first - req.start,
+                })
+              }
               switch (value.type) {
                 case "start":
                   SessionStatus.set(input.sessionID, { type: "busy" })
@@ -258,6 +289,7 @@ export namespace SessionProcessor {
                   break
 
                 case "finish-step":
+                  const done = Date.now()
                   const usage = Session.getUsage({
                     model: input.model,
                     usage: value.usage,
@@ -270,6 +302,16 @@ export namespace SessionProcessor {
                   if (uid && usage.tokens.total) {
                     Usage.record({ userID: uid, sessionID: input.sessionID, tokens: usage.tokens.total })
                   }
+                  l.info("request", {
+                    phase: "finish",
+                    attempt: turn,
+                    step: args.step,
+                    finishReason: value.finishReason,
+                    ttfbMs: first ? first - req.start : undefined,
+                    durationMs: done - req.start,
+                    tokens: usage.tokens,
+                    cost: usage.cost,
+                  })
                   await Session.updatePart({
                     id: PartID.ascending(),
                     reason: value.finishReason,
@@ -387,6 +429,27 @@ export namespace SessionProcessor {
               if (retry !== undefined) {
                 attempt++
                 const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)
+                if (req) {
+                  llog
+                    .clone()
+                    .tag("providerID", input.model.providerID)
+                    .tag("modelID", input.model.id)
+                    .tag("sessionID", input.sessionID)
+                    .tag("assistantID", input.assistantMessage.id)
+                    .tag("agent", streamInput.agent.name)
+                    .tag("mode", streamInput.agent.mode)
+                    .tag("requestID", req.id)
+                    .warn("request", {
+                      phase: "retry",
+                      attempt: turn,
+                      nextAttempt: turn + 1,
+                      step: streamInput.step,
+                      delayMs: delay,
+                      reason: retry,
+                      ttfbMs: first ? first - req.start : undefined,
+                      durationMs: Date.now() - req.start,
+                    })
+                }
                 SessionStatus.set(input.sessionID, {
                   type: "retry",
                   attempt,
