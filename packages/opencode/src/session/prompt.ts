@@ -672,7 +672,6 @@ export namespace SessionPrompt {
         system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
       }
 
-      const prev = lastFinished?.time.completed
       const result = await processor.process({
         user: lastUser,
         agent,
@@ -693,9 +692,6 @@ export namespace SessionPrompt {
         ],
         tools,
         model,
-        step,
-        prev,
-        gap: prev ? Date.now() - prev : undefined,
         toolChoice: format.type === "json_schema" ? "required" : undefined,
       })
 

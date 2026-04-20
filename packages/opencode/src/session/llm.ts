@@ -32,31 +32,19 @@ export namespace LLM {
     sessionID: string
     model: Provider.Model
     agent: Agent.Info
-    assistantID?: string
     permission?: PermissionNext.Ruleset
     system: string[]
     abort: AbortSignal
     messages: ModelMessage[]
     small?: boolean
     tools: Record<string, Tool>
-    attempt?: number
-    step?: number
-    prev?: number
-    gap?: number
     retries?: number
     toolChoice?: "auto" | "required" | "none"
   }
 
-  export type StreamOutput = StreamTextResult<ToolSet, unknown> & {
-    req: {
-      id: string
-      start: number
-    }
-  }
+  export type StreamOutput = StreamTextResult<ToolSet, unknown>
 
   export async function stream(input: StreamInput) {
-    const prep = Date.now()
-    const req = `${input.assistantID ?? input.user.id}:${input.attempt ?? 1}`
     const l = log
       .clone()
       .tag("providerID", input.model.providerID)
@@ -65,8 +53,10 @@ export namespace LLM {
       .tag("small", (input.small ?? false).toString())
       .tag("agent", input.agent.name)
       .tag("mode", input.agent.mode)
-      .tag("requestID", req)
-    const stamp = (value?: number) => (value ? new Date(value).toISOString() : undefined)
+    l.info("stream", {
+      modelID: input.model.id,
+      providerID: input.model.providerID,
+    })
     const [language, cfg, provider, auth] = await Promise.all([
       Provider.getLanguage(input.model),
       Config.get(),
@@ -180,109 +170,90 @@ export namespace LLM {
       })
     }
 
-    const start = Date.now()
-    l.info("request", {
-      phase: "start",
-      assistantID: input.assistantID,
-      attempt: input.attempt ?? 1,
-      step: input.step,
-      gapMs: input.gap,
-      prepMs: start - prep,
-      prevCompletedAt: stamp(input.prev),
-    })
-
-    return Object.assign(
-      streamText({
-        onError(error) {
-          l.error("stream error", {
-            error,
+    return streamText({
+      onError(error) {
+        l.error("stream error", {
+          error,
+        })
+      },
+      async experimental_repairToolCall(failed) {
+        const lower = failed.toolCall.toolName.toLowerCase()
+        if (lower !== failed.toolCall.toolName && tools[lower]) {
+          l.info("repairing tool call", {
+            tool: failed.toolCall.toolName,
+            repaired: lower,
           })
-        },
-        async experimental_repairToolCall(failed) {
-          const lower = failed.toolCall.toolName.toLowerCase()
-          if (lower !== failed.toolCall.toolName && tools[lower]) {
-            l.info("repairing tool call", {
-              tool: failed.toolCall.toolName,
-              repaired: lower,
-            })
-            return {
-              ...failed.toolCall,
-              toolName: lower,
-            }
-          }
           return {
             ...failed.toolCall,
-            input: JSON.stringify({
-              tool: failed.toolCall.toolName,
-              error: failed.error.message,
-            }),
-            toolName: "invalid",
+            toolName: lower,
           }
-        },
-        temperature: params.temperature,
-        topP: params.topP,
-        topK: params.topK,
-        providerOptions: ProviderTransform.providerOptions(input.model, params.options),
-        activeTools: Object.keys(tools).filter((x) => x !== "invalid"),
-        tools,
-        toolChoice: input.toolChoice,
-        maxOutputTokens,
-        abortSignal: input.abort,
-        headers: {
-          ...(input.model.providerID.startsWith("opencode")
+        }
+        return {
+          ...failed.toolCall,
+          input: JSON.stringify({
+            tool: failed.toolCall.toolName,
+            error: failed.error.message,
+          }),
+          toolName: "invalid",
+        }
+      },
+      temperature: params.temperature,
+      topP: params.topP,
+      topK: params.topK,
+      providerOptions: ProviderTransform.providerOptions(input.model, params.options),
+      activeTools: Object.keys(tools).filter((x) => x !== "invalid"),
+      tools,
+      toolChoice: input.toolChoice,
+      maxOutputTokens,
+      abortSignal: input.abort,
+      headers: {
+        ...(input.model.providerID.startsWith("opencode")
+          ? {
+              "x-opencode-project": Instance.project.id,
+              "x-opencode-session": input.sessionID,
+              "x-opencode-request": input.user.id,
+              "x-opencode-client": Flag.OPENCODE_CLIENT,
+            }
+          : input.model.providerID !== "anthropic"
             ? {
-                "x-opencode-project": Instance.project.id,
-                "x-opencode-session": input.sessionID,
-                "x-opencode-request": input.user.id,
-                "x-opencode-client": Flag.OPENCODE_CLIENT,
+                "User-Agent": `opencode/${Installation.VERSION}`,
               }
-            : input.model.providerID !== "anthropic"
-              ? {
-                  "User-Agent": `opencode/${Installation.VERSION}`,
-                }
-              : undefined),
-          ...input.model.headers,
-          ...headers,
-        },
-        maxRetries: input.retries ?? 0,
-        messages: [
-          ...system.map(
-            (x): ModelMessage => ({
-              role: "system",
-              content: x,
-            }),
-          ),
-          ...input.messages,
-        ],
-        model: wrapLanguageModel({
-          model: language,
-          middleware: [
-            {
-              async transformParams(args) {
-                if (args.type === "stream") {
-                  // @ts-expect-error
-                  args.params.prompt = ProviderTransform.message(args.params.prompt, input.model, options)
-                }
-                return args.params
-              },
+            : undefined),
+        ...input.model.headers,
+        ...headers,
+      },
+      maxRetries: input.retries ?? 0,
+      messages: [
+        ...system.map(
+          (x): ModelMessage => ({
+            role: "system",
+            content: x,
+          }),
+        ),
+        ...input.messages,
+      ],
+      model: wrapLanguageModel({
+        model: language,
+        middleware: [
+          {
+            async transformParams(args) {
+              if (args.type === "stream") {
+                // @ts-expect-error
+                args.params.prompt = ProviderTransform.message(args.params.prompt, input.model, options)
+              }
+              return args.params
             },
-          ],
-        }),
-        experimental_telemetry: {
-          isEnabled: cfg.experimental?.openTelemetry,
-          metadata: {
-            userId: cfg.username ?? "unknown",
-            sessionId: input.sessionID,
           },
-        },
+        ],
       }),
-      {
-        req: {
-          id: req,
-          start,
+      experimental_telemetry: {
+        isEnabled: cfg.experimental?.openTelemetry,
+        metadata: {
+          userId: cfg.username ?? "unknown",
+          sessionId: input.sessionID,
         },
       },
-    )
+    })
   }
 
   async function resolveTools(input: Pick<StreamInput, "tools" | "agent" | "permission" | "user">) {
