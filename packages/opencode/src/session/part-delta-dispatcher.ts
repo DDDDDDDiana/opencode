@@ -22,7 +22,7 @@ export namespace PartDeltaDispatcher {
     () => ({
       entries: new Map<string, Entry>(),
       timer: undefined as ReturnType<typeof setTimeout> | undefined,
-      flushing: false,
+      flushTail: Promise.resolve() as Promise<void>,
       batchMs: Number(process.env.OPENCODE_PART_DELTA_BATCH_MS ?? 50),
     }),
     async (s) => {
@@ -36,7 +36,25 @@ export namespace PartDeltaDispatcher {
     return `${input.sessionID}\n${input.messageID}\n${input.partID}\n${input.field}`
   }
 
-  async function publish(entry: Entry) {
+  function serialize(task: () => Promise<void>): Promise<void> {
+    const s = state()
+    const run = s.flushTail.then(task, task)
+    s.flushTail = run.catch(() => {})
+    return run
+  }
+
+  function takeEntries(predicate: (entry: Entry) => boolean): Entry[] {
+    const s = state()
+    const result: Entry[] = []
+    for (const [key, entry] of s.entries) {
+      if (!predicate(entry)) continue
+      result.push(entry)
+      s.entries.delete(key)
+    }
+    return result
+  }
+
+  async function publishEntry(entry: Entry) {
     await Bus.publish(
       MessageV2.Event.PartDelta,
       {
@@ -46,8 +64,19 @@ export namespace PartDeltaDispatcher {
         field: entry.field,
         delta: entry.delta,
       },
-      { global: false, logLevel: "off" },
+      {
+        global: false,
+        logLevel: "off",
+        wildcard: false,
+        sessionID: entry.sessionID,
+      },
     )
+  }
+
+  async function publishBatch(entries: Entry[]) {
+    for (const entry of entries) {
+      await publishEntry(entry)
+    }
   }
 
   export function enqueue(input: PartDeltaInput): void {
@@ -69,25 +98,20 @@ export namespace PartDeltaDispatcher {
     if (!s.timer) {
       s.timer = setTimeout(() => {
         s.timer = undefined
-        flushAll()
+        void flushAll()
       }, s.batchMs)
     }
   }
 
   export async function flushAll(): Promise<void> {
-    const s = state()
-    if (s.flushing) return
-    s.flushing = true
-    if (s.timer) {
-      clearTimeout(s.timer)
-      s.timer = undefined
-    }
-    const batch = [...s.entries.values()]
-    s.entries.clear()
-    for (const entry of batch) {
-      await publish(entry)
-    }
-    s.flushing = false
+    return serialize(async () => {
+      const s = state()
+      if (s.timer) {
+        clearTimeout(s.timer)
+        s.timer = undefined
+      }
+      await publishBatch(takeEntries(() => true))
+    })
   }
 
   export async function flushPart(input: {
@@ -95,56 +119,40 @@ export namespace PartDeltaDispatcher {
     messageID: MessageID
     partID: PartID
   }): Promise<void> {
-    const s = state()
-    const matched: Entry[] = []
-    for (const [key, entry] of s.entries) {
-      if (
-        entry.sessionID === input.sessionID &&
-        entry.messageID === input.messageID &&
-        entry.partID === input.partID
-      ) {
-        matched.push(entry)
-        s.entries.delete(key)
-      }
-    }
-    for (const entry of matched) {
-      await publish(entry)
-    }
+    return serialize(async () => {
+      await publishBatch(
+        takeEntries(
+          (entry) =>
+            entry.sessionID === input.sessionID &&
+            entry.messageID === input.messageID &&
+            entry.partID === input.partID,
+        ),
+      )
+    })
   }
 
   export async function flushMessage(input: {
     sessionID: SessionID
     messageID: MessageID
   }): Promise<void> {
-    const s = state()
-    const matched: Entry[] = []
-    for (const [key, entry] of s.entries) {
-      if (
-        entry.sessionID === input.sessionID &&
-        entry.messageID === input.messageID
-      ) {
-        matched.push(entry)
-        s.entries.delete(key)
-      }
-    }
-    for (const entry of matched) {
-      await publish(entry)
-    }
+    return serialize(async () => {
+      await publishBatch(
+        takeEntries(
+          (entry) =>
+            entry.sessionID === input.sessionID &&
+            entry.messageID === input.messageID,
+        ),
+      )
+    })
   }
 
   export async function flushSession(input: {
     sessionID: SessionID
   }): Promise<void> {
-    const s = state()
-    const matched: Entry[] = []
-    for (const [key, entry] of s.entries) {
-      if (entry.sessionID === input.sessionID) {
-        matched.push(entry)
-        s.entries.delete(key)
-      }
-    }
-    for (const entry of matched) {
-      await publish(entry)
-    }
+    return serialize(async () => {
+      await publishBatch(
+        takeEntries((entry) => entry.sessionID === input.sessionID),
+      )
+    })
   }
 }

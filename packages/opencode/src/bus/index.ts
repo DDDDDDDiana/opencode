@@ -18,22 +18,31 @@ export namespace Bus {
   const state = Instance.state(
     () => {
       const subscriptions = new Map<any, Subscription[]>()
+      const sessionSubscriptions = new Map<string, Subscription[]>()
 
       return {
         subscriptions,
+        sessionSubscriptions,
       }
     },
     async (entry) => {
-      const wildcard = entry.subscriptions.get("*")
-      if (!wildcard) return
       const event = {
         type: InstanceDisposed.type,
         properties: {
           directory: Instance.directory,
         },
       }
-      for (const sub of [...wildcard]) {
+
+      const seen = new Set<Subscription>()
+      const notify = (sub: Subscription) => {
+        if (seen.has(sub)) return
+        seen.add(sub)
         sub(event)
+      }
+
+      for (const sub of entry.subscriptions.get("*") ?? []) notify(sub)
+      for (const subs of entry.sessionSubscriptions.values()) {
+        for (const sub of subs) notify(sub)
       }
     },
   )
@@ -41,6 +50,8 @@ export namespace Bus {
   export type PublishOptions = {
     global?: boolean
     logLevel?: "info" | "debug" | "off"
+    wildcard?: boolean
+    sessionID?: string
   }
 
   export async function publish<Definition extends BusEvent.Definition>(
@@ -62,13 +73,25 @@ export namespace Bus {
         type: def.type,
       })
     }
-    const pending = []
-    for (const key of [def.type, "*"]) {
-      const match = state().subscriptions.get(key)
-      for (const sub of match ?? []) {
+    const pending: Array<void | Promise<void>> = []
+    const s = state()
+
+    for (const sub of s.subscriptions.get(def.type) ?? []) {
+      pending.push(sub(payload))
+    }
+
+    if (opts?.sessionID) {
+      for (const sub of s.sessionSubscriptions.get(opts.sessionID) ?? []) {
         pending.push(sub(payload))
       }
     }
+
+    if (opts?.wildcard !== false) {
+      for (const sub of s.subscriptions.get("*") ?? []) {
+        pending.push(sub(payload))
+      }
+    }
+
     if (opts?.global !== false) {
       GlobalBus.emit("event", {
         directory: Instance.directory,
@@ -99,6 +122,27 @@ export namespace Bus {
 
   export function subscribeAll(callback: (event: any) => void) {
     return raw("*", callback)
+  }
+
+  export function subscribeSession(
+    sessionID: string,
+    callback: (event: any) => void | Promise<void>,
+  ) {
+    log.info("subscribing", { type: "session", sessionID })
+    const sessions = state().sessionSubscriptions
+    let match = sessions.get(sessionID) ?? []
+    match.push(callback)
+    sessions.set(sessionID, match)
+
+    return () => {
+      log.info("unsubscribing", { type: "session", sessionID })
+      const match = sessions.get(sessionID)
+      if (!match) return
+      const index = match.indexOf(callback)
+      if (index === -1) return
+      match.splice(index, 1)
+      if (match.length === 0) sessions.delete(sessionID)
+    }
   }
 
   function raw(type: string, callback: (event: any) => void) {

@@ -17,6 +17,7 @@ import type {
   ProviderListResponse,
   ProviderAuthMethod,
   VcsInfo,
+  Event,
 } from "@opencode-ai/sdk/v2"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
@@ -25,7 +26,7 @@ import { createSimpleContext } from "./helper"
 import type { Snapshot } from "@/snapshot"
 import { useExit } from "./exit"
 import { useArgs } from "./args"
-import { batch, onMount } from "solid-js"
+import { batch, onCleanup, onMount } from "solid-js"
 import { Log } from "@/util/log"
 import type { Path } from "@opencode-ai/sdk"
 import type { Workspace } from "@opencode-ai/sdk/v2"
@@ -113,10 +114,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       setStore("workspaceList", reconcile(result.data))
     }
 
-    sdk.event.listen((e) => {
-      const event = e.details
+    function applyEvent(event: Event) {
       switch (event.type) {
         case "server.instance.disposed":
+          closeAllSessionStreams()
           bootstrap()
           break
         case "permission.replied": {
@@ -212,6 +213,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               }),
             )
           }
+          closeSessionStream(event.properties.info.id)
+          fullSyncedSessions.delete(event.properties.info.id)
           break
         }
         case "session.updated": {
@@ -350,7 +353,76 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
         }
       }
+    }
+
+    sdk.event.listen((e) => {
+      applyEvent(e.details)
     })
+
+    const sessionStreams = new Map<string, AbortController>()
+    const HEARTBEAT_TIMEOUT_MS = 15_000
+    const RECONNECT_DELAY_MS = 250
+
+    function closeSessionStream(sessionID: string) {
+      const ac = sessionStreams.get(sessionID)
+      if (!ac) return
+      ac.abort()
+      sessionStreams.delete(sessionID)
+    }
+
+    function closeAllSessionStreams() {
+      for (const ac of sessionStreams.values()) ac.abort()
+      sessionStreams.clear()
+    }
+
+    function ensureSessionStream(sessionID: string) {
+      if (sessionStreams.has(sessionID)) return
+
+      const ac = new AbortController()
+      sessionStreams.set(sessionID, ac)
+
+      void (async () => {
+        while (!ac.signal.aborted) {
+          const attempt = new AbortController()
+          const onAbort = () => attempt.abort()
+          ac.signal.addEventListener("abort", onAbort)
+
+          let heartbeat: ReturnType<typeof setTimeout> | undefined
+          const resetHeartbeat = () => {
+            if (heartbeat) clearTimeout(heartbeat)
+            heartbeat = setTimeout(() => attempt.abort(), HEARTBEAT_TIMEOUT_MS)
+          }
+          const clearHeartbeat = () => {
+            if (heartbeat) clearTimeout(heartbeat)
+            heartbeat = undefined
+          }
+
+          try {
+            const result = await sdk.client.session.event(
+              { sessionID },
+              { signal: attempt.signal },
+            )
+
+            resetHeartbeat()
+            for await (const event of result.stream as AsyncIterable<Event>) {
+              if (attempt.signal.aborted || ac.signal.aborted) break
+              resetHeartbeat()
+              applyEvent(event)
+            }
+          } catch {
+            // reconnect
+          } finally {
+            ac.signal.removeEventListener("abort", onAbort)
+            clearHeartbeat()
+          }
+
+          if (ac.signal.aborted) return
+          await new Promise((resolve) => setTimeout(resolve, RECONNECT_DELAY_MS))
+        }
+      })().finally(() => {
+        sessionStreams.delete(sessionID)
+      })
+    }
 
     const exit = useExit()
     const args = useArgs()
@@ -441,6 +513,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       bootstrap()
     })
 
+    onCleanup(() => {
+      closeAllSessionStreams()
+    })
+
     const fullSyncedSessions = new Set<string>()
     const result = {
       data: store,
@@ -468,7 +544,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           return last.time.completed ? "idle" : "working"
         },
         async sync(sessionID: string) {
-          if (fullSyncedSessions.has(sessionID)) return
+          if (fullSyncedSessions.has(sessionID)) {
+            ensureSessionStream(sessionID)
+            return
+          }
           const [session, messages, todo, diff] = await Promise.all([
             sdk.client.session.get({ sessionID }, { throwOnError: true }),
             sdk.client.session.messages({ sessionID, limit: 100 }),
@@ -489,6 +568,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             }),
           )
           fullSyncedSessions.add(sessionID)
+          ensureSessionStream(sessionID)
         },
       },
       workspace: {

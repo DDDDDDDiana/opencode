@@ -173,33 +173,67 @@ export const SessionRoutes = lazy(() => {
         c.header("X-Content-Type-Options", "nosniff")
         return streamSSE(c, async (stream) => {
           const writer = createEventStreamWriter(stream, {
-            coalesceKey(event: any) {
-              if (event?.type === "message.part.delta") {
-                const p = event.properties
-                return `${p.messageID}:${p.partID}:${p.field}`
-              }
-              return undefined
+            coalesce: {
+              key(event: any) {
+                if (event?.type === "message.part.delta") {
+                  const p = event.properties
+                  return `delta:${p.messageID}:${p.partID}:${p.field}`
+                }
+                if (event?.type === "session.status") {
+                  return `session.status:${event.properties.sessionID}`
+                }
+                if (event?.type === "message.part.updated") {
+                  const part = event.properties.part
+                  return `part.updated:${part.messageID}:${part.id}`
+                }
+                return undefined
+              },
+              merge(existing: any, incoming: any) {
+                if (
+                  existing?.type === "message.part.delta" &&
+                  incoming?.type === "message.part.delta"
+                ) {
+                  return {
+                    ...incoming,
+                    properties: {
+                      ...incoming.properties,
+                      delta: existing.properties.delta + incoming.properties.delta,
+                    },
+                  }
+                }
+                return incoming
+              },
             },
           })
           writer.push({
             type: "server.connected",
             properties: {},
           })
-          const unsub = Bus.subscribeAll((event) => {
+
+          const unsubSession = Bus.subscribeSession(sessionID, (event) => {
+            writer.push(event)
+          })
+
+          const unsubLowFreq = Bus.subscribeAll((event) => {
+            if (event.type === "message.part.delta") return
+
             if (event.type === Bus.InstanceDisposed.type) {
               writer.close()
               stream.close()
               return
             }
+
             if (!eventBelongsToSession(event, sessionID)) return
             writer.push(event)
           })
+
           const stopHeartbeat = writer.startHeartbeat()
           await new Promise<void>((resolve) => {
             stream.onAbort(() => {
               stopHeartbeat()
               writer.close()
-              unsub()
+              unsubSession()
+              unsubLowFreq()
               resolve()
               log.info("session event disconnected", { sessionID })
             })

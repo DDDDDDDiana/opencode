@@ -3,7 +3,10 @@ export type StreamEvent = unknown
 export type CreateEventStreamOptions = {
   maxQueue?: number
   flushMs?: number
-  coalesceKey?: (event: StreamEvent) => string | undefined
+  coalesce?: {
+    key(event: StreamEvent): string | undefined
+    merge?(existing: StreamEvent, incoming: StreamEvent): StreamEvent
+  }
   serialize?: (event: StreamEvent) => string
   onOverflow?: (queued: number) => void
 }
@@ -17,44 +20,44 @@ export function createEventStreamWriter(
 ) {
   const max = opts?.maxQueue ?? 1000
   const delay = opts?.flushMs ?? 16
-  const coalesce = opts?.coalesceKey
+  const coalesce = opts?.coalesce
   const serialize = opts?.serialize ?? JSON.stringify
 
   let queue: { event: StreamEvent; key: string | undefined }[] = []
   let closed = false
+  let flushing = false
   let timer: ReturnType<typeof setTimeout> | undefined
 
   function schedule() {
     if (timer !== undefined) return
     timer = setTimeout(() => {
       timer = undefined
-      flush()
+      void flush()
     }, delay)
   }
 
   function push(event: StreamEvent) {
     if (closed) return
 
-    const key = coalesce ? coalesce(event) : undefined
+    const key = coalesce ? coalesce.key(event) : undefined
 
     if (key !== undefined) {
       const idx = queue.findIndex((e) => e.key === key)
       if (idx !== -1) {
-        queue[idx] = { event, key }
+        const existing = queue[idx].event
+        queue[idx] = {
+          key,
+          event: coalesce?.merge ? coalesce.merge(existing, event) : event,
+        }
         schedule()
         return
       }
     }
 
     if (queue.length >= max) {
-      const victim = queue.findIndex((e) => e.key !== undefined)
-      if (victim !== -1) {
-        queue.splice(victim, 1)
-      } else {
-        if (opts?.onOverflow) opts.onOverflow(queue.length)
-        close()
-        return
-      }
+      opts?.onOverflow?.(queue.length)
+      close()
+      return
     }
 
     queue.push({ event, key })
@@ -63,22 +66,30 @@ export function createEventStreamWriter(
 
   async function flush() {
     if (closed) return
+    if (flushing) return
+    flushing = true
 
     if (timer !== undefined) {
       clearTimeout(timer)
       timer = undefined
     }
 
-    const items = queue
-    queue = []
-
-    for (const item of items) {
-      try {
-        await stream.writeSSE({ data: serialize(item.event) })
-      } catch {
-        close()
-        return
+    try {
+      while (!closed && queue.length > 0) {
+        const items = queue
+        queue = []
+        for (const item of items) {
+          try {
+            await stream.writeSSE({ data: serialize(item.event) })
+          } catch {
+            close()
+            return
+          }
+        }
       }
+    } finally {
+      flushing = false
+      if (!closed && queue.length > 0) schedule()
     }
   }
 

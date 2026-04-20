@@ -551,6 +551,8 @@ export namespace Server {
               properties: {},
             })
             const unsub = Bus.subscribeAll((event) => {
+              if (event.type === "message.part.delta") return
+
               writer.push(event)
               if (event.type === Bus.InstanceDisposed.type) {
                 writer.close()

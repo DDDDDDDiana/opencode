@@ -81,6 +81,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
 
           for await (const event of events.stream) {
             if (ctrl.signal.aborted) break
+            if (event.type === "message.part.delta") continue
             handleEvent(event)
           }
 
