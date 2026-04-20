@@ -37,6 +37,7 @@ import { iife } from "@/util/iife"
 import { QuotaError } from "@/user/errors"
 import { User } from "@/user"
 import { UserContext } from "@/user/user-context"
+import { PerfLog } from "@/util/perf-log"
 
 export namespace Session {
   const log = Log.create({ service: "session" })
@@ -741,25 +742,36 @@ export namespace Session {
   })
 
   export const updateMessage = fn(MessageV2.Info, async (msg) => {
+    const span = PerfLog.span("session.update_message", {
+      sessionID: msg.sessionID,
+      messageID: msg.id,
+      role: msg.role,
+      finish: "finish" in msg ? msg.finish : undefined,
+      hasError: "error" in msg ? !!msg.error : undefined,
+    })
     const time_created = msg.time.created
     const { id, sessionID, ...data } = msg
-    Database.use((db) => {
-      db.insert(MessageTable)
-        .values({
-          id,
-          session_id: sessionID,
-          time_created,
-          data,
-        })
-        .onConflictDoUpdate({ target: MessageTable.id, set: { data } })
-        .run()
-      Database.effect(() =>
-        Bus.publish(MessageV2.Event.Updated, {
-          info: msg,
-        }),
-      )
-    })
-    return msg
+    try {
+      Database.use((db) => {
+        db.insert(MessageTable)
+          .values({
+            id,
+            session_id: sessionID,
+            time_created,
+            data,
+          })
+          .onConflictDoUpdate({ target: MessageTable.id, set: { data } })
+          .run()
+        Database.effect(() =>
+          Bus.publish(MessageV2.Event.Updated, {
+            info: msg,
+          }),
+        )
+      })
+      return msg
+    } finally {
+      span.end()
+    }
   })
 
   export const removeMessage = fn(
@@ -810,26 +822,39 @@ export namespace Session {
   const UpdatePartInput = MessageV2.Part
 
   export const updatePart = fn(UpdatePartInput, async (part) => {
+    const span = PerfLog.span("session.update_part", {
+      sessionID: part.sessionID,
+      messageID: part.messageID,
+      partID: part.id,
+      partType: part.type,
+      textChars: typeof (part as any).text === "string" ? (part as any).text.length : undefined,
+      tool: (part as any).tool,
+      toolStatus: (part as any).state?.status,
+    })
     const { id, messageID, sessionID, ...data } = part
     const time = Date.now()
-    Database.use((db) => {
-      db.insert(PartTable)
-        .values({
-          id,
-          message_id: messageID,
-          session_id: sessionID,
-          time_created: time,
-          data,
-        })
-        .onConflictDoUpdate({ target: PartTable.id, set: { data } })
-        .run()
-      Database.effect(() =>
-        Bus.publish(MessageV2.Event.PartUpdated, {
-          part: structuredClone(part),
-        }),
-      )
-    })
-    return part
+    try {
+      Database.use((db) => {
+        db.insert(PartTable)
+          .values({
+            id,
+            message_id: messageID,
+            session_id: sessionID,
+            time_created: time,
+            data,
+          })
+          .onConflictDoUpdate({ target: PartTable.id, set: { data } })
+          .run()
+        Database.effect(() =>
+          Bus.publish(MessageV2.Event.PartUpdated, {
+            part: structuredClone(part),
+          }),
+        )
+      })
+      return part
+    } finally {
+      span.end()
+    }
   })
 
   export const PartDeltaInputSchema = z.object({

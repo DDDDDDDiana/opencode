@@ -173,6 +173,8 @@ export const SessionRoutes = lazy(() => {
         c.header("X-Content-Type-Options", "nosniff")
         return streamSSE(c, async (stream) => {
           const writer = createEventStreamWriter(stream, {
+            name: "session.event",
+            sessionID,
             coalesce: {
               key(event: any) {
                 if (event?.type === "message.part.delta") {

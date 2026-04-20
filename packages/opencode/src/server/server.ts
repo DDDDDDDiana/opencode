@@ -545,7 +545,9 @@ export namespace Server {
           c.header("X-Accel-Buffering", "no")
           c.header("X-Content-Type-Options", "nosniff")
           return streamSSE(c, async (stream) => {
-            const writer = createEventStreamWriter(stream)
+            const writer = createEventStreamWriter(stream, {
+              name: "server.event",
+            })
             writer.push({
               type: "server.connected",
               properties: {},

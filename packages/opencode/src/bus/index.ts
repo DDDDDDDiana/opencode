@@ -3,9 +3,11 @@ import { Log } from "../util/log"
 import { Instance } from "../project/instance"
 import { BusEvent } from "./bus-event"
 import { GlobalBus } from "./global"
+import { PerfLog } from "@/util/perf-log"
 
 export namespace Bus {
   const log = Log.create({ service: "bus" })
+  let publishLogCounter = 0
   type Subscription = (event: any) => void
 
   export const InstanceDisposed = BusEvent.define(
@@ -73,24 +75,17 @@ export namespace Bus {
         type: def.type,
       })
     }
-    const pending: Array<void | Promise<void>> = []
+
+    const started = PerfLog.enabled() ? Number(process.hrtime.bigint() / 1_000_000n) : 0
     const s = state()
+    const directSubscribers = s.subscriptions.get(def.type) ?? []
+    const sessionSubscribers = opts?.sessionID ? (s.sessionSubscriptions.get(opts.sessionID) ?? []) : []
+    const wildcardSubscribers = opts?.wildcard !== false ? (s.subscriptions.get("*") ?? []) : []
+    const pending: Array<void | Promise<void>> = []
 
-    for (const sub of s.subscriptions.get(def.type) ?? []) {
-      pending.push(sub(payload))
-    }
-
-    if (opts?.sessionID) {
-      for (const sub of s.sessionSubscriptions.get(opts.sessionID) ?? []) {
-        pending.push(sub(payload))
-      }
-    }
-
-    if (opts?.wildcard !== false) {
-      for (const sub of s.subscriptions.get("*") ?? []) {
-        pending.push(sub(payload))
-      }
-    }
+    for (const sub of directSubscribers) pending.push(sub(payload))
+    for (const sub of sessionSubscribers) pending.push(sub(payload))
+    for (const sub of wildcardSubscribers) pending.push(sub(payload))
 
     if (opts?.global !== false) {
       GlobalBus.emit("event", {
@@ -98,7 +93,30 @@ export namespace Bus {
         payload,
       })
     }
-    return Promise.all(pending)
+    try {
+      return await Promise.all(pending)
+    } finally {
+      if (PerfLog.enabled()) {
+        const durationMs = Number(process.hrtime.bigint() / 1_000_000n) - started
+        const sampleEvery = Number(process.env.OPENCODE_PERF_LOG_BUS_SAMPLE_EVERY ?? 100)
+        const thresholdMs = Number(process.env.OPENCODE_PERF_LOG_BUS_MS ?? 10)
+        const highVolume = def.type === "message.part.delta"
+        publishLogCounter++
+        if (!highVolume || durationMs >= thresholdMs || PerfLog.shouldSampleEvery(publishLogCounter, sampleEvery)) {
+          PerfLog.emit("bus.publish", {
+            type: def.type,
+            sessionID: opts?.sessionID,
+            global: opts?.global !== false,
+            wildcard: opts?.wildcard !== false,
+            directSubscribers: directSubscribers.length,
+            sessionSubscribers: sessionSubscribers.length,
+            wildcardSubscribers: wildcardSubscribers.length,
+            pending: pending.length,
+            durationMs,
+          })
+        }
+      }
+    }
   }
 
   export function subscribe<Definition extends BusEvent.Definition>(

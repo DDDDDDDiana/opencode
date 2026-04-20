@@ -22,6 +22,7 @@ import { SystemPrompt } from "./system"
 import { Flag } from "@/flag/flag"
 import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
+import { PerfLog } from "@/util/perf-log"
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
@@ -170,7 +171,21 @@ export namespace LLM {
       })
     }
 
-    return streamText({
+    const req = { id: crypto.randomUUID(), start: Date.now() }
+    PerfLog.emit("llm.request.start", {
+      providerID: input.model.providerID,
+      modelID: input.model.id,
+      sessionID: input.sessionID,
+      requestID: req.id,
+      small: input.small ?? false,
+      agent: input.agent.name,
+      mode: input.agent.mode,
+      messageCount: input.messages.length,
+      toolCount: Object.keys(tools).length,
+      systemChars: system.reduce((sum, item) => sum + item.length, 0),
+    })
+
+    return Object.assign(streamText({
       onError(error) {
         l.error("stream error", {
           error,
@@ -253,7 +268,7 @@ export namespace LLM {
           sessionId: input.sessionID,
         },
       },
-    })
+    }), { req })
   }
 
   async function resolveTools(input: Pick<StreamInput, "tools" | "agent" | "permission" | "user">) {

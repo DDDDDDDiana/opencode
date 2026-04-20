@@ -20,6 +20,7 @@ import { Usage } from "@/user/usage"
 import { UserContext } from "@/user/user-context"
 import { QuotaError } from "@/user/errors"
 import { User } from "@/user"
+import { PerfLog } from "@/util/perf-log"
 
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
@@ -72,6 +73,29 @@ export namespace SessionProcessor {
             }
             await Promise.all(pending)
           }
+          const streamEventGapThreshold = Number(process.env.OPENCODE_PERF_LOG_STREAM_GAP_MS ?? 250)
+          const streamEventHandleThreshold = Number(process.env.OPENCODE_PERF_LOG_HANDLE_MS ?? 25)
+          const streamEventSampleEvery = Number(process.env.OPENCODE_PERF_LOG_STREAM_SAMPLE_EVERY ?? 50)
+          let streamEventIndex = 0
+          let streamLastEventAt: number | undefined
+          let textChars = 0
+          let reasoningChars = 0
+          let streamCounterOpen = false
+          let req: { id: string; start: number } | undefined
+          let first: number | undefined
+          const closeStreamCounter = (reason: string) => {
+            if (!streamCounterOpen || !req) return
+            streamCounterOpen = false
+            PerfLog.counter("llm.active_streams", -1, {
+              providerID: input.model.providerID,
+              modelID: input.model.id,
+              sessionID: input.sessionID,
+              assistantID: input.assistantMessage.id,
+              requestID: req.id,
+              attempt,
+              reason,
+            })
+          }
           try {
             const uid = UserContext.userID
             if (uid) {
@@ -85,9 +109,65 @@ export namespace SessionProcessor {
               }
             }
             const stream = await LLM.stream(streamInput)
+            req = (stream as any).req
+            streamCounterOpen = true
+            PerfLog.counter("llm.active_streams", 1, {
+              providerID: input.model.providerID,
+              modelID: input.model.id,
+              sessionID: input.sessionID,
+              assistantID: input.assistantMessage.id,
+              requestID: req?.id,
+              attempt,
+              agent: streamInput.agent.name,
+              mode: streamInput.agent.mode,
+            })
 
             for await (const value of stream.fullStream) {
               input.abort.throwIfAborted()
+              const eventReceivedAt = Date.now()
+              const eventType = value.type
+              const rawDelta = (value as any).text ?? (value as any).delta
+              const deltaChars = typeof rawDelta === "string" ? rawDelta.length : undefined
+              if (eventType === "text-delta" && deltaChars) textChars += deltaChars
+              if (eventType === "reasoning-delta" && deltaChars) reasoningChars += deltaChars
+              const eventGapMs = streamLastEventAt === undefined ? undefined : eventReceivedAt - streamLastEventAt
+              streamLastEventAt = eventReceivedAt
+              streamEventIndex++
+              const shouldLogEvent =
+                eventType !== "text-delta" ||
+                (eventGapMs ?? 0) >= streamEventGapThreshold ||
+                PerfLog.shouldSampleEvery(streamEventIndex, streamEventSampleEvery)
+              if (shouldLogEvent) {
+                PerfLog.emit("llm.stream.event", {
+                  providerID: input.model.providerID,
+                  modelID: input.model.id,
+                  sessionID: input.sessionID,
+                  assistantID: input.assistantMessage.id,
+                  requestID: req?.id,
+                  attempt,
+                  eventIndex: streamEventIndex,
+                  eventType,
+                  gapMs: eventGapMs,
+                  sinceStartMs: req ? eventReceivedAt - req.start : undefined,
+                  deltaChars,
+                  textChars,
+                  reasoningChars,
+                })
+              }
+              if (!first) {
+                first = eventReceivedAt
+                PerfLog.emit("llm.request.first", {
+                  providerID: input.model.providerID,
+                  modelID: input.model.id,
+                  sessionID: input.sessionID,
+                  assistantID: input.assistantMessage.id,
+                  requestID: req?.id,
+                  attempt,
+                  eventType: value.type,
+                  ttfbMs: req ? first - req.start : undefined,
+                })
+              }
+              const handlerStart = Number(process.hrtime.bigint() / 1_000_000n)
               switch (value.type) {
                 case "start":
                   SessionStatus.set(input.sessionID, { type: "busy" })
@@ -280,7 +360,8 @@ export namespace SessionProcessor {
                   })
                   break
 
-                case "finish-step":
+                case "finish-step": {
+                  const done = Date.now()
                   const usage = Session.getUsage({
                     model: input.model,
                     usage: value.usage,
@@ -293,6 +374,22 @@ export namespace SessionProcessor {
                   if (uid && usage.tokens.total) {
                     Usage.record({ userID: uid, sessionID: input.sessionID, tokens: usage.tokens.total })
                   }
+                  PerfLog.emit("llm.request.finish_step", {
+                    providerID: input.model.providerID,
+                    modelID: input.model.id,
+                    sessionID: input.sessionID,
+                    assistantID: input.assistantMessage.id,
+                    requestID: req?.id,
+                    attempt,
+                    finishReason: value.finishReason,
+                    ttfbMs: first && req ? first - req.start : undefined,
+                    durationMs: req ? done - req.start : undefined,
+                    eventCount: streamEventIndex,
+                    textChars,
+                    reasoningChars,
+                    tokens: usage.tokens,
+                    cost: usage.cost,
+                  })
                   await Session.updatePart({
                     id: PartID.ascending(),
                     reason: value.finishReason,
@@ -329,6 +426,7 @@ export namespace SessionProcessor {
                     needsCompaction = true
                   }
                   break
+                }
 
                 case "text-start":
                   currentText = {
@@ -396,9 +494,25 @@ export namespace SessionProcessor {
                   })
                   continue
               }
+              const handlerDurationMs = Number(process.hrtime.bigint() / 1_000_000n) - handlerStart
+              if (handlerDurationMs >= streamEventHandleThreshold || value.type !== "text-delta") {
+                PerfLog.emit("llm.stream.handle", {
+                  providerID: input.model.providerID,
+                  modelID: input.model.id,
+                  sessionID: input.sessionID,
+                  assistantID: input.assistantMessage.id,
+                  requestID: req?.id,
+                  attempt,
+                  eventIndex: streamEventIndex,
+                  eventType: value.type,
+                  durationMs: handlerDurationMs,
+                })
+              }
               if (needsCompaction) break
             }
+            closeStreamCounter("stream_end")
           } catch (e: any) {
+            closeStreamCounter("error")
             log.error("process", {
               error: e,
               stack: JSON.stringify(e.stack),
@@ -416,6 +530,19 @@ export namespace SessionProcessor {
               if (retry !== undefined) {
                 attempt++
                 const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)
+                PerfLog.emit("llm.request.retry", {
+                  providerID: input.model.providerID,
+                  modelID: input.model.id,
+                  sessionID: input.sessionID,
+                  assistantID: input.assistantMessage.id,
+                  requestID: req?.id,
+                  attempt,
+                  nextAttempt: attempt + 1,
+                  delayMs: delay,
+                  reason: retry,
+                  ttfbMs: first && req ? first - req.start : undefined,
+                  durationMs: req ? Date.now() - req.start : undefined,
+                })
                 SessionStatus.set(input.sessionID, {
                   type: "retry",
                   attempt,

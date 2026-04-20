@@ -1,6 +1,7 @@
 import { Bus } from "@/bus"
 import { Instance } from "@/project/instance"
 import { MessageV2 } from "@/session/message-v2"
+import { PerfLog } from "@/util/perf-log"
 import type { SessionID, MessageID, PartID } from "@/session/schema"
 
 export namespace PartDeltaDispatcher {
@@ -11,6 +12,8 @@ export namespace PartDeltaDispatcher {
     field: string
     delta: string
   }
+
+  let enqueueLogCounter = 0
 
   type Entry = PartDeltaInput & {
     key: string
@@ -55,7 +58,16 @@ export namespace PartDeltaDispatcher {
   }
 
   async function publishEntry(entry: Entry) {
-    await Bus.publish(
+    const span = PerfLog.span("part_delta.publish_entry", {
+      sessionID: entry.sessionID,
+      messageID: entry.messageID,
+      partID: entry.partID,
+      field: entry.field,
+      deltaChars: entry.delta.length,
+      ageMs: Date.now() - entry.createdAt,
+    })
+    try {
+      await Bus.publish(
       MessageV2.Event.PartDelta,
       {
         sessionID: entry.sessionID,
@@ -71,11 +83,23 @@ export namespace PartDeltaDispatcher {
         sessionID: entry.sessionID,
       },
     )
+    } finally {
+      span.end()
+    }
   }
 
   async function publishBatch(entries: Entry[]) {
-    for (const entry of entries) {
-      await publishEntry(entry)
+    const span = PerfLog.span("part_delta.publish_batch", {
+      entryCount: entries.length,
+      deltaChars: entries.reduce((sum, entry) => sum + entry.delta.length, 0),
+      oldestAgeMs: entries.length ? Date.now() - Math.min(...entries.map((entry) => entry.createdAt)) : 0,
+    })
+    try {
+      for (const entry of entries) {
+        await publishEntry(entry)
+      }
+    } finally {
+      span.end()
     }
   }
 
@@ -83,9 +107,11 @@ export namespace PartDeltaDispatcher {
     const s = state()
     const key = keyOf(input)
     const existing = s.entries.get(key)
+    let merged = false
     if (existing) {
       existing.delta += input.delta
       existing.updatedAt = Date.now()
+      merged = true
     } else {
       const now = Date.now()
       s.entries.set(key, {
@@ -95,6 +121,23 @@ export namespace PartDeltaDispatcher {
         updatedAt: now,
       })
     }
+
+    enqueueLogCounter++
+    const sampleEvery = Number(process.env.OPENCODE_PERF_LOG_DELTA_SAMPLE_EVERY ?? 50)
+    const queueThreshold = Number(process.env.OPENCODE_PERF_LOG_DELTA_QUEUE_LOG ?? 25)
+    if (s.entries.size >= queueThreshold || PerfLog.shouldSampleEvery(enqueueLogCounter, sampleEvery)) {
+      PerfLog.emit("part_delta.enqueue", {
+        sessionID: input.sessionID,
+        messageID: input.messageID,
+        partID: input.partID,
+        field: input.field,
+        deltaChars: input.delta.length,
+        queuedEntries: s.entries.size,
+        merged,
+        batchMs: s.batchMs,
+      })
+    }
+
     if (!s.timer) {
       s.timer = setTimeout(() => {
         s.timer = undefined

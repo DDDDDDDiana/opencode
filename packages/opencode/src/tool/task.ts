@@ -11,6 +11,7 @@ import { iife } from "@/util/iife"
 import { defer } from "@/util/defer"
 import { Config } from "../config/config"
 import { PermissionNext } from "@/permission/next"
+import { PerfLog } from "@/util/perf-log"
 
 const parameters = z.object({
   description: z.string().describe("A short (3-5 words) description of the task"),
@@ -44,6 +45,13 @@ export const TaskTool = Tool.define("task", async (ctx) => {
     description,
     parameters,
     async execute(params: z.infer<typeof parameters>, ctx) {
+      const span = PerfLog.span("tool.task.execute", {
+        parentSessionID: ctx.sessionID,
+        parentMessageID: ctx.messageID,
+        subagent: params.subagent_type,
+        resumed: !!params.task_id,
+        command: params.command,
+      })
       const config = await Config.get()
 
       // Skip permission check when user explicitly invoked via @ or command subtask
@@ -126,6 +134,14 @@ export const TaskTool = Tool.define("task", async (ctx) => {
       using _ = defer(() => ctx.abort.removeEventListener("abort", cancel))
       const promptParts = await SessionPrompt.resolvePromptParts(params.prompt)
 
+      PerfLog.emit("tool.task.subagent_session", {
+        parentSessionID: ctx.sessionID,
+        parentMessageID: ctx.messageID,
+        sessionID: session.id,
+        subagent: agent.name,
+        modelID: model.modelID,
+        providerID: model.providerID,
+      })
       const result = await SessionPrompt.prompt({
         messageID,
         sessionID: session.id,
@@ -153,6 +169,11 @@ export const TaskTool = Tool.define("task", async (ctx) => {
         "</task_result>",
       ].join("\n")
 
+      span.end({
+        sessionID: session.id,
+        status: "completed",
+        outputChars: output.length,
+      })
       return {
         title: params.description,
         metadata: {
