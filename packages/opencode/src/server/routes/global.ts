@@ -10,6 +10,7 @@ import { Log } from "../../util/log"
 import { lazy } from "../../util/lazy"
 import { Config } from "../../config/config"
 import { errors } from "../error"
+import { createEventStreamWriter } from "../event-stream"
 
 const log = Log.create({ service: "server" })
 
@@ -69,36 +70,30 @@ export const GlobalRoutes = lazy(() =>
         c.header("X-Accel-Buffering", "no")
         c.header("X-Content-Type-Options", "nosniff")
         return streamSSE(c, async (stream) => {
-          stream.writeSSE({
-            data: JSON.stringify({
+          const writer = createEventStreamWriter(stream)
+          writer.push({
+            payload: {
+              type: "server.connected",
+              properties: {},
+            },
+          })
+          function handler(event: any) {
+            if (event?.payload?.type === "message.part.delta") return
+            writer.push(event)
+          }
+          GlobalBus.on("event", handler)
+          const stopHeartbeat = writer.startHeartbeat({
+            eventFactory: () => ({
               payload: {
-                type: "server.connected",
+                type: "server.heartbeat",
                 properties: {},
               },
             }),
           })
-          async function handler(event: any) {
-            await stream.writeSSE({
-              data: JSON.stringify(event),
-            })
-          }
-          GlobalBus.on("event", handler)
-
-          // Send heartbeat every 10s to prevent stalled proxy streams.
-          const heartbeat = setInterval(() => {
-            stream.writeSSE({
-              data: JSON.stringify({
-                payload: {
-                  type: "server.heartbeat",
-                  properties: {},
-                },
-              }),
-            })
-          }, 10_000)
-
           await new Promise<void>((resolve) => {
             stream.onAbort(() => {
-              clearInterval(heartbeat)
+              stopHeartbeat()
+              writer.close()
               GlobalBus.off("event", handler)
               resolve()
               log.info("global event disconnected")

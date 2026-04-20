@@ -56,9 +56,27 @@ export namespace SessionProcessor {
           let req: LLM.StreamOutput["req"] | undefined
           let first: number | undefined
           const turn = attempt + 1
+          let currentText: MessageV2.TextPart | undefined
+          let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
+          const flushOpenParts = async () => {
+            const pending = []
+            for (const part of Object.values(reasoningMap)) {
+              pending.push(Session.flushPartDeltasForPart({
+                sessionID: part.sessionID,
+                messageID: part.messageID,
+                partID: part.id,
+              }))
+            }
+            if (currentText) {
+              pending.push(Session.flushPartDeltasForPart({
+                sessionID: currentText.sessionID,
+                messageID: currentText.messageID,
+                partID: currentText.id,
+              }))
+            }
+            await Promise.all(pending)
+          }
           try {
-            let currentText: MessageV2.TextPart | undefined
-            let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
             const uid = UserContext.userID
             if (uid) {
               const user = await User.get(uid)
@@ -130,7 +148,7 @@ export namespace SessionProcessor {
                     const part = reasoningMap[value.id]
                     part.text += value.text
                     if (value.providerMetadata) part.metadata = value.providerMetadata
-                    await Session.updatePartDelta({
+                    Session.enqueuePartDelta({
                       sessionID: part.sessionID,
                       messageID: part.messageID,
                       partID: part.id,
@@ -150,6 +168,11 @@ export namespace SessionProcessor {
                       end: Date.now(),
                     }
                     if (value.providerMetadata) part.metadata = value.providerMetadata
+                    await Session.flushPartDeltasForPart({
+                      sessionID: part.sessionID,
+                      messageID: part.messageID,
+                      partID: part.id,
+                    })
                     await Session.updatePart(part)
                     delete reasoningMap[value.id]
                   }
@@ -368,7 +391,7 @@ export namespace SessionProcessor {
                   if (currentText) {
                     currentText.text += value.text
                     if (value.providerMetadata) currentText.metadata = value.providerMetadata
-                    await Session.updatePartDelta({
+                    Session.enqueuePartDelta({
                       sessionID: currentText.sessionID,
                       messageID: currentText.messageID,
                       partID: currentText.id,
@@ -396,6 +419,11 @@ export namespace SessionProcessor {
                       end: Date.now(),
                     }
                     if (value.providerMetadata) currentText.metadata = value.providerMetadata
+                    await Session.flushPartDeltasForPart({
+                      sessionID: currentText.sessionID,
+                      messageID: currentText.messageID,
+                      partID: currentText.id,
+                    })
                     await Session.updatePart(currentText)
                   }
                   currentText = undefined
@@ -417,6 +445,7 @@ export namespace SessionProcessor {
               error: e,
               stack: JSON.stringify(e.stack),
             })
+            await flushOpenParts()
             const error = MessageV2.fromError(e, { providerID: input.model.providerID })
             if (MessageV2.ContextOverflowError.isInstance(error)) {
               needsCompaction = true
@@ -467,6 +496,7 @@ export namespace SessionProcessor {
               SessionStatus.set(input.sessionID, { type: "idle" })
             }
           }
+          await flushOpenParts()
           if (snapshot) {
             const patch = await Snapshot.patch(snapshot)
             if (patch.files.length) {

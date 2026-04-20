@@ -1,4 +1,4 @@
-import { batch, createMemo } from "solid-js"
+import { batch, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { Binary } from "@opencode-ai/util/binary"
 import { retry } from "@opencode-ai/util/retry"
@@ -13,6 +13,7 @@ import { useGlobalSync } from "./global-sync"
 import { useSDK } from "./sdk"
 import type { Message, Part } from "@opencode-ai/sdk/v2/client"
 import { SESSION_CACHE_LIMIT, dropSessionCaches, pickSessionCacheEvictions } from "./global-sync/session-cache"
+import { applyDirectoryEvent } from "./global-sync/event-reducer"
 
 function sortParts(parts: Part[]) {
   return parts.filter((part) => !!part?.id).sort((a, b) => cmp(a.id, b.id))
@@ -185,6 +186,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const optimistic = new Map<string, Map<string, OptimisticItem>>()
     const maxDirs = 30
     const seen = new Map<string, Set<string>>()
+    const sessionStreams = new Map<string, AbortController>()
     const [meta, setMeta] = createStore({
       limit: {} as Record<string, number>,
       cursor: {} as Record<string, string | undefined>,
@@ -266,6 +268,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     const evict = (directory: string, setStore: Setter, sessionIDs: string[]) => {
       if (sessionIDs.length === 0) return
+      for (const sessionID of sessionIDs) closeSessionStream(directory, sessionID)
       clearSessionPrefetch(directory, sessionIDs)
       for (const sessionID of sessionIDs) {
         globalSync.todo.set(sessionID, undefined)
@@ -309,6 +312,87 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     }
 
     const tracked = (directory: string, sessionID: string) => seen.get(directory)?.has(sessionID) ?? false
+
+    const HEARTBEAT_TIMEOUT_MS = 15_000
+    const RECONNECT_DELAY_MS = 250
+
+    const closeSessionStream = (directory: string, sessionID: string) => {
+      const sk = keyFor(directory, sessionID)
+      const ac = sessionStreams.get(sk)
+      if (ac) {
+        ac.abort()
+        sessionStreams.delete(sk)
+      }
+    }
+
+    const closeAllSessionStreams = () => {
+      for (const ac of sessionStreams.values()) ac.abort()
+      sessionStreams.clear()
+    }
+
+    const ensureSessionStream = (directory: string, sessionID: string, setStore: Setter) => {
+      const sk = keyFor(directory, sessionID)
+      if (sessionStreams.has(sk)) return
+
+      const ac = new AbortController()
+      sessionStreams.set(sk, ac)
+
+      void (async () => {
+        while (!ac.signal.aborted) {
+          const attempt = new AbortController()
+          const onAbort = () => attempt.abort()
+          ac.signal.addEventListener("abort", onAbort)
+
+          let heartbeat: ReturnType<typeof setTimeout> | undefined
+          const resetHeartbeat = () => {
+            if (heartbeat) clearTimeout(heartbeat)
+            heartbeat = setTimeout(() => attempt.abort(), HEARTBEAT_TIMEOUT_MS)
+          }
+          const clearHeartbeat = () => {
+            if (heartbeat) clearTimeout(heartbeat)
+            heartbeat = undefined
+          }
+
+          try {
+            const result = await sdk.client.session.event(
+              { sessionID },
+              { signal: attempt.signal },
+            )
+
+            resetHeartbeat()
+            for await (const event of result.stream as AsyncIterable<{ type: string; properties?: unknown }>) {
+              resetHeartbeat()
+
+              if (!tracked(directory, sessionID)) {
+                attempt.abort()
+                return
+              }
+
+              const [store] = globalSync.child(directory, { bootstrap: false })
+              applyDirectoryEvent({
+                event,
+                directory,
+                store,
+                setStore,
+                push: () => {},
+                setSessionTodo: globalSync.todo.set,
+                loadLsp: () => {},
+              })
+            }
+          } catch {
+            // reconnect on error
+          } finally {
+            ac.signal.removeEventListener("abort", onAbort)
+            clearHeartbeat()
+          }
+
+          if (ac.signal.aborted) return
+          await new Promise<void>((r) => setTimeout(r, RECONNECT_DELAY_MS))
+        }
+      })().finally(() => {
+        sessionStreams.delete(sk)
+      })
+    }
 
     const loadMessages = async (input: {
       directory: string
@@ -362,6 +446,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           )
         })
     }
+
+    onCleanup(closeAllSessionStreams)
 
     return {
       get data() {
@@ -430,6 +516,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           const key = keyFor(directory, sessionID)
 
           touch(directory, setStore, sessionID)
+          ensureSessionStream(directory, sessionID, setStore)
 
           const seeded = getSessionPrefetch(directory, sessionID)
           if (seeded && store.message[sessionID] !== undefined && meta.limit[key] === undefined) {

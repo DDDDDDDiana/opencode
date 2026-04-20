@@ -19,6 +19,7 @@ import { MessageV2 } from "./message-v2"
 import { Instance } from "../project/instance"
 import { SessionPrompt } from "./prompt"
 import { fn } from "@/util/fn"
+import { PartDeltaDispatcher } from "./part-delta-dispatcher"
 import { Command } from "../command"
 import { Snapshot } from "@/snapshot"
 import { WorkspaceContext } from "../control-plane/workspace-context"
@@ -831,18 +832,41 @@ export namespace Session {
     return part
   })
 
-  export const updatePartDelta = fn(
-    z.object({
-      sessionID: SessionID.zod,
-      messageID: MessageID.zod,
-      partID: PartID.zod,
-      field: z.string(),
-      delta: z.string(),
-    }),
-    async (input) => {
-      Bus.publish(MessageV2.Event.PartDelta, input)
-    },
-  )
+  export const PartDeltaInputSchema = z.object({
+    sessionID: SessionID.zod,
+    messageID: MessageID.zod,
+    partID: PartID.zod,
+    field: z.string(),
+    delta: z.string(),
+  })
+  export type PartDeltaInput = z.infer<typeof PartDeltaInputSchema>
+
+  export const updatePartDelta = fn(PartDeltaInputSchema, async (input) => {
+    PartDeltaDispatcher.enqueue(input)
+  })
+
+  export function enqueuePartDelta(input: PartDeltaInput) {
+    PartDeltaDispatcher.enqueue(input)
+  }
+
+  export async function flushPartDeltasForPart(input: {
+    sessionID: SessionID
+    messageID: MessageID
+    partID: PartID
+  }) {
+    await PartDeltaDispatcher.flushPart(input)
+  }
+
+  export async function flushPartDeltasForMessage(input: {
+    sessionID: SessionID
+    messageID: MessageID
+  }) {
+    await PartDeltaDispatcher.flushMessage(input)
+  }
+
+  export async function flushPartDeltasForSession(input: { sessionID: SessionID }) {
+    await PartDeltaDispatcher.flushSession(input)
+  }
 
   export const getUsage = fn(
     z.object({

@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { stream } from "hono/streaming"
+import { stream, streamSSE } from "hono/streaming"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import { SessionID, MessageID, PartID } from "@/session/schema"
 import z from "zod"
@@ -17,7 +17,10 @@ import { Log } from "../../util/log"
 import { PermissionNext } from "@/permission/next"
 import { PermissionID } from "@/permission/schema"
 import { ModelID, ProviderID } from "@/provider/schema"
+import { Bus } from "@/bus"
+import { BusEvent } from "@/bus/bus-event"
 import { errors } from "../error"
+import { createEventStreamWriter } from "../event-stream"
 import { lazy } from "../../util/lazy"
 
 const log = Log.create({ service: "server" })
@@ -25,6 +28,16 @@ const log = Log.create({ service: "server" })
 export const SessionRoutes = lazy(() => {
   const guard = async (sessionID: SessionID) => {
     await Session.get(sessionID)
+  }
+
+  function eventBelongsToSession(event: any, sessionID: string): boolean {
+    const p = event?.properties
+    if (!p) return false
+    if (p.sessionID === sessionID) return true
+    if (p.part?.sessionID === sessionID) return true
+    if (p.info?.sessionID === sessionID) return true
+    if (p.info?.id === sessionID) return true
+    return false
   }
 
   return new Hono()
@@ -126,6 +139,72 @@ export const SessionRoutes = lazy(() => {
         log.info("SEARCH", { url: c.req.url })
         const session = await Session.get(sessionID)
         return c.json(session)
+      },
+    )
+    .get(
+      "/:sessionID/event",
+      describeRoute({
+        summary: "Subscribe to session events",
+        description: "Subscribe to real-time events for a specific session using server-sent events.",
+        operationId: "session.event",
+        responses: {
+          200: {
+            description: "Session event stream",
+            content: {
+              "text/event-stream": {
+                schema: resolver(BusEvent.payloads()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: SessionID.zod,
+        }),
+      ),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        await guard(sessionID)
+        log.info("session event connected", { sessionID })
+        c.header("X-Accel-Buffering", "no")
+        c.header("X-Content-Type-Options", "nosniff")
+        return streamSSE(c, async (stream) => {
+          const writer = createEventStreamWriter(stream, {
+            coalesceKey(event: any) {
+              if (event?.type === "message.part.delta") {
+                const p = event.properties
+                return `${p.messageID}:${p.partID}:${p.field}`
+              }
+              return undefined
+            },
+          })
+          writer.push({
+            type: "server.connected",
+            properties: {},
+          })
+          const unsub = Bus.subscribeAll((event) => {
+            if (event.type === Bus.InstanceDisposed.type) {
+              writer.close()
+              stream.close()
+              return
+            }
+            if (!eventBelongsToSession(event, sessionID)) return
+            writer.push(event)
+          })
+          const stopHeartbeat = writer.startHeartbeat()
+          await new Promise<void>((resolve) => {
+            stream.onAbort(() => {
+              stopHeartbeat()
+              writer.close()
+              unsub()
+              resolve()
+              log.info("session event disconnected", { sessionID })
+            })
+          })
+        })
       },
     )
     .get(

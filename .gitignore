@@ -37,3 +37,13 @@ tests/**
 packages/opencode/.retry-test.stderr.txt
 packages/opencode/.retry-test.stdout.txt
 packages/opencode/.typecheck.out.txt
+.trellis/**
+.claude/**
+.gitnexus/**
+AGENTS.md
+.agents/**
+
+# Unit test files (local only)
+**/*.test.ts
+**/*.test.tsx
+skills-lock.json

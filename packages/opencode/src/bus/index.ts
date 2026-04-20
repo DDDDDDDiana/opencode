@@ -38,17 +38,30 @@ export namespace Bus {
     },
   )
 
+  export type PublishOptions = {
+    global?: boolean
+    logLevel?: "info" | "debug" | "off"
+  }
+
   export async function publish<Definition extends BusEvent.Definition>(
     def: Definition,
     properties: z.output<Definition["properties"]>,
+    opts?: PublishOptions,
   ) {
     const payload = {
       type: def.type,
       properties,
     }
-    log.info("publishing", {
-      type: def.type,
-    })
+    const level = opts?.logLevel ?? "info"
+    if (level === "info") {
+      log.info("publishing", {
+        type: def.type,
+      })
+    } else if (level === "debug") {
+      log.debug("publishing", {
+        type: def.type,
+      })
+    }
     const pending = []
     for (const key of [def.type, "*"]) {
       const match = state().subscriptions.get(key)
@@ -56,10 +69,12 @@ export namespace Bus {
         pending.push(sub(payload))
       }
     }
-    GlobalBus.emit("event", {
-      directory: Instance.directory,
-      payload,
-    })
+    if (opts?.global !== false) {
+      GlobalBus.emit("event", {
+        directory: Instance.directory,
+        payload,
+      })
+    }
     return Promise.all(pending)
   }
 

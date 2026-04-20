@@ -49,6 +49,7 @@ import { MDNS } from "./mdns"
 import { lazy } from "@/util/lazy"
 import { resolve } from "./user-auth"
 import { UserContext } from "../user/user-context"
+import { createEventStreamWriter } from "./event-stream"
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout https://github.com/vercel/ai/blob/2dc67e0ef538307f21368db32d5a12345d98831b/packages/ai/src/logger/log-warnings.ts#L85
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -544,34 +545,23 @@ export namespace Server {
           c.header("X-Accel-Buffering", "no")
           c.header("X-Content-Type-Options", "nosniff")
           return streamSSE(c, async (stream) => {
-            stream.writeSSE({
-              data: JSON.stringify({
-                type: "server.connected",
-                properties: {},
-              }),
+            const writer = createEventStreamWriter(stream)
+            writer.push({
+              type: "server.connected",
+              properties: {},
             })
-            const unsub = Bus.subscribeAll(async (event) => {
-              await stream.writeSSE({
-                data: JSON.stringify(event),
-              })
+            const unsub = Bus.subscribeAll((event) => {
+              writer.push(event)
               if (event.type === Bus.InstanceDisposed.type) {
+                writer.close()
                 stream.close()
               }
             })
-
-            // Send heartbeat every 10s to prevent stalled proxy streams.
-            const heartbeat = setInterval(() => {
-              stream.writeSSE({
-                data: JSON.stringify({
-                  type: "server.heartbeat",
-                  properties: {},
-                }),
-              })
-            }, 10_000)
-
+            const stopHeartbeat = writer.startHeartbeat()
             await new Promise<void>((resolve) => {
               stream.onAbort(() => {
-                clearInterval(heartbeat)
+                stopHeartbeat()
+                writer.close()
                 unsub()
                 resolve()
                 log.info("event disconnected")

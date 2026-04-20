@@ -41,6 +41,7 @@ import { Installation } from "@/installation"
 import { MessageV2 } from "@/session/message-v2"
 import { Config } from "@/config/config"
 import { Todo } from "@/session/todo"
+import { Bus } from "@/bus"
 import { z } from "zod"
 import { LoadAPIKeyError } from "ai"
 import type { AssistantMessage, Event, OpencodeClient, SessionMessageResponse, ToolPart } from "@opencode-ai/sdk/v2"
@@ -162,6 +163,13 @@ export namespace ACP {
         if (this.eventAbort.signal.aborted) return
         log.error("event subscription failed", { error })
       })
+      const unsub = Bus.subscribeAll((event) => {
+        if (event.type !== "message.part.delta") return
+        this.handleEvent(event as Event).catch((error) => {
+          log.error("failed to handle bus delta event", { error })
+        })
+      })
+      this.eventAbort.signal.addEventListener("abort", unsub)
     }
 
     private async runEventSubscription() {
