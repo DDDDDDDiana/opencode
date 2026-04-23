@@ -228,7 +228,7 @@ describe("Worker IPC", () => {
     child.send({
       type: "permission.reply",
       requestID: "nonexistent_perm_id" as any,
-      reply: "approve",
+      reply: "once",
     })
 
     await new Promise((r) => setTimeout(r, 500))

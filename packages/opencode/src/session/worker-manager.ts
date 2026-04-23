@@ -11,6 +11,7 @@ import type { PermissionID } from "@/permission/schema"
 import type { PermissionNext } from "@/permission/next"
 import type { QuestionID } from "@/question/schema"
 import type { Question } from "@/question"
+import { UserContext, type Identity } from "@/user/user-context"
 
 const log = Log.create({ service: "session.worker-manager" })
 
@@ -197,6 +198,14 @@ export namespace WorkerManager {
     }
   }
 
+  function captureIdentity(): Identity | undefined {
+    try {
+      return UserContext.get()
+    } catch {
+      return undefined
+    }
+  }
+
   async function ensureReady(sessionID: SessionID): Promise<WorkerHandle> {
     const s = state()
     let handle = s.workers.get(sessionID)
@@ -207,6 +216,7 @@ export namespace WorkerManager {
 
   export async function prompt(input: SessionPrompt.PromptInput): Promise<MessageV2.WithParts> {
     const s = state()
+    const identity = captureIdentity()
     const handle = await ensureReady(input.sessionID)
     const id = `p_${++s.promptIdCounter}`
     handle.state = "busy"
@@ -214,12 +224,13 @@ export namespace WorkerManager {
 
     return new Promise<MessageV2.WithParts>((resolve, reject) => {
       handle.pendingPrompts.set(id, { resolve, reject })
-      sendToWorker(handle, { type: "prompt", id, input })
+      sendToWorker(handle, { type: "prompt", id, input, identity })
     })
   }
 
   export async function promptAsync(input: SessionPrompt.PromptInput): Promise<void> {
     const s = state()
+    const identity = captureIdentity()
     const handle = await ensureReady(input.sessionID)
     const id = `p_${++s.promptIdCounter}`
     handle.state = "busy"
@@ -231,11 +242,12 @@ export namespace WorkerManager {
         log.error("async prompt failed", { sessionID: input.sessionID, error: err })
       },
     })
-    sendToWorker(handle, { type: "prompt", id, input })
+    sendToWorker(handle, { type: "prompt", id, input, identity })
   }
 
   export async function command(input: SessionPrompt.CommandInput): Promise<MessageV2.WithParts> {
     const s = state()
+    const identity = captureIdentity()
     const handle = await ensureReady(input.sessionID)
     const id = `p_${++s.promptIdCounter}`
     handle.state = "busy"
@@ -243,12 +255,13 @@ export namespace WorkerManager {
 
     return new Promise<MessageV2.WithParts>((resolve, reject) => {
       handle.pendingPrompts.set(id, { resolve, reject })
-      sendToWorker(handle, { type: "prompt_command", id, input })
+      sendToWorker(handle, { type: "prompt_command", id, input, identity })
     })
   }
 
   export async function loop(sessionID: SessionID): Promise<MessageV2.WithParts> {
     const s = state()
+    const identity = captureIdentity()
     const handle = await ensureReady(sessionID)
     const id = `p_${++s.promptIdCounter}`
     handle.state = "busy"
@@ -256,12 +269,13 @@ export namespace WorkerManager {
 
     return new Promise<MessageV2.WithParts>((resolve, reject) => {
       handle.pendingPrompts.set(id, { resolve, reject })
-      sendToWorker(handle, { type: "prompt_loop", id, sessionID })
+      sendToWorker(handle, { type: "prompt_loop", id, sessionID, identity })
     })
   }
 
   export async function shell(input: SessionPrompt.ShellInput): Promise<MessageV2.WithParts> {
     const s = state()
+    const identity = captureIdentity()
     const handle = await ensureReady(input.sessionID)
     const id = `p_${++s.promptIdCounter}`
     handle.state = "busy"
@@ -269,7 +283,7 @@ export namespace WorkerManager {
 
     return new Promise<MessageV2.WithParts>((resolve, reject) => {
       handle.pendingPrompts.set(id, { resolve, reject })
-      sendToWorker(handle, { type: "prompt_shell", id, input })
+      sendToWorker(handle, { type: "prompt_shell", id, input, identity })
     })
   }
 

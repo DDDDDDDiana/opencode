@@ -11,6 +11,7 @@ import { Snapshot } from "@/snapshot"
 import { Truncate } from "@/tool/truncation"
 import { Log } from "@/util/log"
 import { runPromiseInstance } from "@/effect/runtime"
+import { UserContext } from "@/user/user-context"
 import type { WorkerIpc } from "./worker-ipc"
 
 const log = Log.create({ service: "session.worker" })
@@ -148,7 +149,11 @@ async function main() {
       process.on("message", (msg: WorkerIpc.CoordinatorMessage) => {
         Instance.provide({
           directory,
-          fn: () => handleMessage(msg),
+          fn: () => {
+            const identity = "identity" in msg ? msg.identity : undefined
+            if (identity) return UserContext.provide(identity, () => handleMessage(msg))
+            return handleMessage(msg)
+          },
         })
       })
 

@@ -5,6 +5,7 @@ import type { SessionPrompt } from "./prompt"
 import type { MessageV2 } from "./message-v2"
 import type { PermissionNext } from "@/permission/next"
 import type { Question } from "@/question"
+import type { Identity } from "@/user/user-context"
 
 export namespace WorkerIpc {
   // ── Coordinator → Worker ──────────────────────────────────────────
@@ -19,21 +20,25 @@ export namespace WorkerIpc {
         type: "prompt"
         id: string
         input: SessionPrompt.PromptInput
+        identity?: Identity
       }
     | {
         type: "prompt_command"
         id: string
         input: SessionPrompt.CommandInput
+        identity?: Identity
       }
     | {
         type: "prompt_shell"
         id: string
         input: SessionPrompt.ShellInput
+        identity?: Identity
       }
     | {
         type: "prompt_loop"
         id: string
         sessionID: SessionID
+        identity?: Identity
       }
     | {
         type: "cancel"
