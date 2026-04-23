@@ -5,6 +5,7 @@ import { PermissionNext } from "@/permission/next"
 import { PermissionID } from "@/permission/schema"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { WorkerManager } from "../../session/worker-manager"
 
 export const PermissionRoutes = lazy(() =>
   new Hono()
@@ -36,7 +37,7 @@ export const PermissionRoutes = lazy(() =>
       async (c) => {
         const params = c.req.valid("param")
         const json = c.req.valid("json")
-        await PermissionNext.reply({
+        WorkerManager.forwardPermissionReply({
           requestID: params.requestID,
           reply: json.reply,
           message: json.message,

@@ -6,6 +6,7 @@ import { Question } from "../../question"
 import z from "zod"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { WorkerManager } from "../../session/worker-manager"
 
 export const QuestionRoutes = lazy(() =>
   new Hono()
@@ -59,7 +60,7 @@ export const QuestionRoutes = lazy(() =>
       async (c) => {
         const params = c.req.valid("param")
         const json = c.req.valid("json")
-        await Question.reply({
+        WorkerManager.forwardQuestionReply({
           requestID: params.requestID,
           answers: json.answers,
         })
@@ -92,7 +93,7 @@ export const QuestionRoutes = lazy(() =>
       ),
       async (c) => {
         const params = c.req.valid("param")
-        await Question.reject(params.requestID)
+        WorkerManager.forwardQuestionReject(params.requestID)
         return c.json(true)
       },
     ),

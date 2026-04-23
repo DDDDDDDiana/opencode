@@ -19,6 +19,7 @@ import { PermissionID } from "@/permission/schema"
 import { ModelID, ProviderID } from "@/provider/schema"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { WorkerManager } from "../../session/worker-manager"
 
 const log = Log.create({ service: "server" })
 
@@ -383,7 +384,12 @@ export const SessionRoutes = lazy(() => {
         }),
       ),
       async (c) => {
-        SessionPrompt.cancel(c.req.valid("param").sessionID)
+        const sessionID = c.req.valid("param").sessionID
+        if (WorkerManager.hasWorker(sessionID)) {
+          WorkerManager.cancel(sessionID)
+        } else {
+          SessionPrompt.cancel(sessionID)
+        }
         return c.json(true)
       },
     )
@@ -543,7 +549,7 @@ export const SessionRoutes = lazy(() => {
           },
           auto: body.auto,
         })
-        await SessionPrompt.loop({ sessionID })
+        await WorkerManager.loop(sessionID)
         return c.json(true)
       },
     )
@@ -702,6 +708,9 @@ export const SessionRoutes = lazy(() => {
       async (c) => {
         const params = c.req.valid("param")
         await guard(params.sessionID)
+        if (WorkerManager.isBusy(params.sessionID)) {
+          throw new Session.BusyError(params.sessionID)
+        }
         SessionPrompt.assertNotBusy(params.sessionID)
         await Session.removeMessage({
           sessionID: params.sessionID,
@@ -821,7 +830,7 @@ export const SessionRoutes = lazy(() => {
         return stream(c, async (stream) => {
           const sessionID = c.req.valid("param").sessionID
           const body = c.req.valid("json")
-          const msg = await SessionPrompt.prompt({ ...body, sessionID })
+          const msg = await WorkerManager.prompt({ ...body, sessionID })
           stream.write(JSON.stringify(msg))
         })
       },
@@ -853,7 +862,7 @@ export const SessionRoutes = lazy(() => {
         return stream(c, async () => {
           const sessionID = c.req.valid("param").sessionID
           const body = c.req.valid("json")
-          SessionPrompt.prompt({ ...body, sessionID })
+          WorkerManager.promptAsync({ ...body, sessionID })
         })
       },
     )
@@ -890,7 +899,7 @@ export const SessionRoutes = lazy(() => {
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         const body = c.req.valid("json")
-        const msg = await SessionPrompt.command({ ...body, sessionID })
+        const msg = await WorkerManager.command({ ...body, sessionID })
         return c.json(msg)
       },
     )
@@ -922,7 +931,7 @@ export const SessionRoutes = lazy(() => {
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         const body = c.req.valid("json")
-        const msg = await SessionPrompt.shell({ ...body, sessionID })
+        const msg = await WorkerManager.shell({ ...body, sessionID })
         return c.json(msg)
       },
     )
@@ -1020,9 +1029,10 @@ export const SessionRoutes = lazy(() => {
       validator("json", z.object({ response: PermissionNext.Reply })),
       async (c) => {
         const params = c.req.valid("param")
-        PermissionNext.reply({
+        const reply = c.req.valid("json").response
+        WorkerManager.forwardPermissionReply({
           requestID: params.permissionID,
-          reply: c.req.valid("json").response,
+          reply,
         })
         return c.json(true)
       },
