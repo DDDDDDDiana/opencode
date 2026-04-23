@@ -86,6 +86,17 @@ export namespace Bus {
     return raw("*", callback)
   }
 
+  export function forward(event: { type: string; properties: any }) {
+    const pending = []
+    for (const key of [event.type, "*"]) {
+      const match = state().subscriptions.get(key)
+      for (const sub of match ?? []) {
+        pending.push(sub(event))
+      }
+    }
+    return Promise.all(pending)
+  }
+
   function raw(type: string, callback: (event: any) => void) {
     log.info("subscribing", { type })
     const subscriptions = state().subscriptions

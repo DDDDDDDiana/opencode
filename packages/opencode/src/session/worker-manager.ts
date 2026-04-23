@@ -1,6 +1,7 @@
 import type { Subprocess } from "bun"
 import { resolve, dirname } from "path"
 import { Instance } from "@/project/instance"
+import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
 import { Log } from "@/util/log"
 import type { SessionID } from "./schema"
@@ -99,10 +100,11 @@ export namespace WorkerManager {
     })
 
     const directory = Instance.directory
+    const boundHandler = Instance.bind((message: WorkerIpc.WorkerMessage) => {
+      handleWorkerMessage(s, sessionID, message)
+    })
     const child = Bun.spawn(["bun", "run", WORKER_ENTRY], {
-      ipc(message: WorkerIpc.WorkerMessage) {
-        handleWorkerMessage(s, sessionID, message)
-      },
+      ipc: boundHandler,
       stdio: ["inherit", "inherit", "inherit"],
       env: {
         ...process.env,
@@ -166,6 +168,7 @@ export namespace WorkerManager {
           directory: msg.directory,
           payload: msg.event,
         })
+        Bus.forward(msg.event)
         break
 
       case "prompt.result": {
